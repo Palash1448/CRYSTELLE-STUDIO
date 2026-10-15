@@ -1,0 +1,175 @@
+# ==============================================================================
+# Crystelle Studio — Apache Configuration (.htaccess)
+# Designed for SPA / Nitro / Vite deployments on Apache / cPanel / Shared Hosts
+# ==============================================================================
+
+# 1. SECURITY & DIRECTORY SETTINGS
+# ------------------------------------------------------------------------------
+# Prevent directory listing
+Options -Indexes
+
+# Follow symbolic links
+Options +FollowSymLinks
+
+# Disable server signature
+ServerSignature Off
+
+# Block access to hidden files and sensitive directories (e.g. .git, .env)
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Block access to package.json, lockfiles, and project configurations
+<FilesMatch "(package\.json|package-lock\.json|bun\.lock|tsconfig\.json|vite\.config\.ts|\.env.*)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+
+# 2. MIME TYPES
+# ------------------------------------------------------------------------------
+<IfModule mod_mime.c>
+    # JavaScript & Modules
+    AddType application/javascript js mjs
+    AddType text/javascript js mjs
+
+    # JSON & Manifest
+    AddType application/json json webmanifest
+
+    # CSS & HTML
+    AddType text/css css
+    AddType text/html html htm
+
+    # Images & Vector
+    AddType image/svg+xml svg svgz
+    AddType image/webp webp
+    AddType image/png png
+    AddType image/jpeg jpeg jpg
+    AddType image/x-icon ico
+
+    # Web Fonts
+    AddType font/woff woff
+    AddType font/woff2 woff2
+    AddType font/ttf ttf
+    AddType font/otf otf
+    AddType application/vnd.ms-fontobject eot
+
+    # Default character encoding
+    AddCharset UTF-8 .html .css .js .mjs .json .svg .xml
+</IfModule>
+
+
+# 3. GZIP / DEFLATE COMPRESSION
+# ------------------------------------------------------------------------------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE text/javascript
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE application/vnd.ms-fontobject
+    AddOutputFilterByType DEFLATE application/x-font-ttf
+    AddOutputFilterByType DEFLATE font/opentype
+    AddOutputFilterByType DEFLATE font/ttf
+    AddOutputFilterByType DEFLATE font/otf
+    AddOutputFilterByType DEFLATE font/woff
+    AddOutputFilterByType DEFLATE font/woff2
+    AddOutputFilterByType DEFLATE image/svg+xml
+    AddOutputFilterByType DEFLATE image/x-icon
+</IfModule>
+
+
+# 4. CACHE CONTROL & EXPIRES HEADERS
+# ------------------------------------------------------------------------------
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresDefault "access plus 1 month"
+
+    # HTML - never aggressively cached so updates are immediate
+    ExpiresByType text/html "access plus 0 seconds"
+
+    # CSS & JavaScript (Vite includes content hashes)
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType text/javascript "access plus 1 year"
+
+    # Images
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/x-icon "access plus 1 year"
+
+    # Fonts
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/ttf "access plus 1 year"
+
+    # Data & Manifests
+    ExpiresByType application/json "access plus 0 seconds"
+</IfModule>
+
+<IfModule mod_headers.c>
+    # Security headers
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # 1-year immutable caching for static hashed assets
+    <FilesMatch "\.(css|js|mjs|webp|png|jpg|jpeg|svg|woff|woff2|ttf)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+
+    # HTML dynamic documents - always revalidate
+    <FilesMatch "\.(html|htm)$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </FilesMatch>
+</IfModule>
+
+
+# 5. URL REWRITING & ROUTING
+# ------------------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # --- Force HTTPS (uncomment below if SSL is active on your server) ---
+    # RewriteCond %{HTTPS} off [OR]
+    # RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # --- OPTION A: Reverse Proxy to Node.js SSR Server (e.g., cPanel Node App on port 3000) ---
+    # If running the app via Node.js (.output/server/index.mjs), uncomment the two lines below:
+    # RewriteCond %{REQUEST_FILENAME} !-f
+    # RewriteRule ^(.*)$ http://127.0.0.1:3000/$1 [P,L]
+
+    # --- OPTION B: Static / SPA Routing Fallback ---
+    # Deliver existing files and directories directly
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Fallback to index.html if it exists
+    RewriteCond %{DOCUMENT_ROOT}/index.html -f
+    RewriteRule ^ index.html [L]
+</IfModule>
