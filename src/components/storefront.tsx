@@ -4,6 +4,8 @@ import {Flame, Search, UserRound, ShoppingCart, Menu, X, Heart, ArrowRight, Minu
 import {Button} from '@/components/ui/button';
 import {products, type Product, money} from '@/lib/store-data';
 import {type UserProfile, type Order, getStoredUser, saveStoredUser, createDefaultUser} from '@/lib/auth';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 export type CartItem = {id:string;size:number;quantity:number};
 type Store = {
@@ -33,6 +35,22 @@ export function StoreProvider({children}:{children:ReactNode}){
  useEffect(()=>{
    const stored = getStoredUser();
    if (stored) setUser(stored);
+
+   const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+     const userEmail = fbUser?.email;
+     if (userEmail) {
+       setUser((curr) => {
+         if (!curr || curr.email !== userEmail) {
+           const nextUser = createDefaultUser(userEmail, fbUser.displayName || undefined);
+           saveStoredUser(nextUser);
+           return nextUser;
+         }
+         return curr;
+       });
+     }
+   });
+
+   return () => unsubscribe();
  },[]);
 
  useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(''),2500);return()=>clearTimeout(timer);},[toast]);
@@ -51,6 +69,7 @@ export function StoreProvider({children}:{children:ReactNode}){
  };
 
  const logout = () => {
+   signOut(auth).catch(() => {});
    setUser(null);
    saveStoredUser(null);
    setToast('Signed out of your account.');

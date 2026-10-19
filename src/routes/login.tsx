@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
 import { useState, useEffect } from 'react';
 import { useStore } from '@/components/storefront';
 import { pageHead, hero, ambience } from '@/lib/store-data';
+import { authenticateWithFirebase } from '@/lib/firebase-router';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,7 +21,6 @@ import {
   Heart,
   PackageCheck,
   LogIn,
-  KeyRound,
 } from 'lucide-react';
 
 export const Route = createFileRoute('/login')({
@@ -33,7 +33,7 @@ export const Route = createFileRoute('/login')({
 });
 
 function LoginPage() {
-  const { user, login, notify } = useStore();
+  const { user, login, updateProfile, notify } = useStore();
   const navigate = useNavigate();
 
   const [isRegister, setIsRegister] = useState(false);
@@ -52,7 +52,7 @@ function LoginPage() {
     }
   }, [user, navigate]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
@@ -74,20 +74,30 @@ function LoginPage() {
 
     setLoading(true);
 
-    setTimeout(() => {
-      login(cleanEmail, isRegister ? fullName : undefined);
-      setLoading(false);
-      navigate({ to: '/profile' });
-    }, 400);
-  };
+    try {
+      // Authenticate via Firebase Auth & sync with Firestore
+      const result = await authenticateWithFirebase(cleanEmail, password, isRegister, fullName);
 
-  const handleQuickDemoLogin = () => {
-    setLoading(true);
-    setTimeout(() => {
-      login('kartiki@crystellestudio.com', 'Kartiki Borgave');
+      if (result.success) {
+        if (result.redirectRoute === '/admin') {
+          notify('Admin authentication verified via Firebase.');
+          navigate({ to: '/admin' });
+        } else {
+          login(cleanEmail, result.user?.fullName || (isRegister ? fullName : undefined));
+          if (result.user?.address) {
+            updateProfile({ address: result.user.address });
+          }
+          notify(`Welcome ${result.user?.fullName ? result.user.fullName.split(' ')[0] : 'to Crystelle Studio'}!`);
+          navigate({ to: '/profile' });
+        }
+      } else {
+        setErrorMessage(result.error || 'Authentication failed. Please verify credentials.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Authentication error.');
+    } finally {
       setLoading(false);
-      navigate({ to: '/profile' });
-    }, 350);
+    }
   };
 
   return (
@@ -212,35 +222,6 @@ function LoginPage() {
                     ? 'Create your account to configure your personal aroma palette.'
                     : 'Sign in to access your profile preferences and saved orders.'}
                 </p>
-              </div>
-
-              {/* Instant 1-Click Demo Access Banner */}
-              <div className="pro-demo-card">
-                <div className="pro-demo-icon">
-                  <KeyRound className="w-4 h-4 text-amber-700" />
-                </div>
-                <div className="pro-demo-text">
-                  <strong className="text-xs text-foreground block font-semibold">
-                    1-Click Instant Demo Login
-                  </strong>
-                  <span className="text-[11px] text-muted-foreground block">
-                    Pre-fills Kartiki&apos;s verified demo account and navigates straight to profile setup.
-                  </span>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="pro-demo-btn"
-                  onClick={handleQuickDemoLogin}
-                  disabled={loading}
-                >
-                  Quick Sign In
-                </Button>
-              </div>
-
-              <div className="pro-divider">
-                <span>or continue with email</span>
               </div>
 
               {/* Error Callout */}

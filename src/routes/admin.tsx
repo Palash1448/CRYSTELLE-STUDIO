@@ -14,8 +14,23 @@ import { CustomerFormModal } from '@/components/admin/CustomerFormModal';
 import {
   getStoredAdminSession,
   saveStoredAdminSession,
+  logoutAdmin,
+  createAdminSession,
   AdminSession,
 } from '@/lib/admin-auth';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import {
+  fetchFirestoreOrders,
+  saveAdminOrderToFirestore,
+  deleteFirestoreOrder,
+  saveProductToFirestore,
+  deleteFirestoreProduct,
+  saveCustomerToFirestore,
+  deleteFirestoreCustomer,
+  savePromoToFirestore,
+  deleteFirestorePromo,
+} from '@/lib/firestore-service';
 import {
   initialOrders,
   initialCustomers,
@@ -54,6 +69,21 @@ function AdminPage() {
     if (session) {
       setAdminSession(session);
     }
+
+    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+      if (fbUser && fbUser.email) {
+        setAdminSession((curr) => {
+          if (!curr) {
+            const newSession = createAdminSession(fbUser.email || 'admin@crystellestudio.com', fbUser.uid, true);
+            saveStoredAdminSession(newSession);
+            return newSession;
+          }
+          return curr;
+        });
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // Active tab
@@ -69,7 +99,12 @@ function AdminPage() {
     });
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await logoutAdmin();
+    } catch (e) {
+      console.warn('Firebase signOut notice:', e);
+    }
     saveStoredAdminSession(null);
     setAdminSession(null);
   };
@@ -153,6 +188,30 @@ function AdminPage() {
     }
   }, [promoCodes]);
 
+  // Synchronize remote orders from Firestore into Admin on authentication
+  useEffect(() => {
+    if (!adminSession) return;
+    let isMounted = true;
+
+    fetchFirestoreOrders()
+      .then((remoteOrders) => {
+        if (!isMounted || !remoteOrders || remoteOrders.length === 0) return;
+        setOrders((prev) => {
+          const existingIds = new Set(prev.map((o) => o.id));
+          const newOnes = remoteOrders.filter((ro) => !existingIds.has(ro.id));
+          if (newOnes.length === 0) return prev;
+          return [...newOnes, ...prev];
+        });
+      })
+      .catch((err) => {
+        console.warn('Firestore orders sync notice:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [adminSession]);
+
   // Modals state for CRUD
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [selectedProductToEdit, setSelectedProductToEdit] = useState<any | null>(null);
@@ -169,16 +228,19 @@ function AdminPage() {
   // -------------------------
   const handleAddProduct = (newProd: any) => {
     setProductsList((current) => [newProd, ...current]);
+    saveProductToFirestore(newProd).catch(console.warn);
   };
 
   const handleUpdateProduct = (updatedProd: any) => {
     setProductsList((current) =>
       current.map((p) => (p.id === updatedProd.id ? { ...p, ...updatedProd } : p))
     );
+    saveProductToFirestore(updatedProd).catch(console.warn);
   };
 
   const handleDeleteProduct = (productId: string) => {
     setProductsList((current) => current.filter((p) => p.id !== productId));
+    deleteFirestoreProduct(productId).catch(console.warn);
   };
 
   const handleUpdateStock = (productId: string, delta: number) => {
@@ -187,7 +249,9 @@ function AdminPage() {
         if (p.id === productId) {
           const currentStock = p.stockQuantity ?? 32;
           const nextStock = Math.max(0, currentStock + delta);
-          return { ...p, stockQuantity: nextStock };
+          const updated = { ...p, stockQuantity: nextStock };
+          saveProductToFirestore(updated).catch(console.warn);
+          return updated;
         }
         return p;
       })
@@ -199,6 +263,7 @@ function AdminPage() {
   // -----------------------
   const handleAddOrder = (newOrder: StudioOrder) => {
     setOrders((current) => [newOrder, ...current]);
+    saveAdminOrderToFirestore(newOrder).catch(console.warn);
   };
 
   const handleUpdateOrder = (updatedOrder: StudioOrder) => {
@@ -208,6 +273,7 @@ function AdminPage() {
     if (selectedOrderForDetails && selectedOrderForDetails.id === updatedOrder.id) {
       setSelectedOrderForDetails(updatedOrder);
     }
+    saveAdminOrderToFirestore(updatedOrder).catch(console.warn);
   };
 
   const handleDeleteOrder = (orderId: string) => {
@@ -215,12 +281,23 @@ function AdminPage() {
     if (selectedOrderForDetails && selectedOrderForDetails.id === orderId) {
       setSelectedOrderForDetails(null);
     }
+    deleteFirestoreOrder(orderId).catch(console.warn);
   };
 
   const handleUpdateOrderStatus = (orderId: string, newStatus: StudioOrder['status']) => {
+    let orderToSync: StudioOrder | undefined;
     setOrders((current) =>
-      current.map((ord) => (ord.id === orderId ? { ...ord, status: newStatus } : ord))
+      current.map((ord) => {
+        if (ord.id === orderId) {
+          orderToSync = { ...ord, status: newStatus };
+          return orderToSync;
+        }
+        return ord;
+      })
     );
+    if (orderToSync) {
+      saveAdminOrderToFirestore(orderToSync).catch(console.warn);
+    }
     if (selectedOrderForDetails && selectedOrderForDetails.id === orderId) {
       setSelectedOrderForDetails((prev) => (prev ? { ...prev, status: newStatus } : null));
     }
@@ -231,16 +308,19 @@ function AdminPage() {
   // --------------------------
   const handleAddCustomer = (newCustomer: StudioCustomer) => {
     setCustomers((current) => [newCustomer, ...current]);
+    saveCustomerToFirestore(newCustomer).catch(console.warn);
   };
 
   const handleUpdateCustomer = (updatedCustomer: StudioCustomer) => {
     setCustomers((current) =>
       current.map((c) => (c.id === updatedCustomer.id ? updatedCustomer : c))
     );
+    saveCustomerToFirestore(updatedCustomer).catch(console.warn);
   };
 
   const handleDeleteCustomer = (customerId: string) => {
     setCustomers((current) => current.filter((c) => c.id !== customerId));
+    deleteFirestoreCustomer(customerId).catch(console.warn);
   };
 
   // ----------------------------
@@ -248,22 +328,35 @@ function AdminPage() {
   // ----------------------------
   const handleAddPromoCode = (newPromo: StudioPromoCode) => {
     setPromoCodes((current) => [newPromo, ...current]);
+    savePromoToFirestore(newPromo).catch(console.warn);
   };
 
   const handleUpdatePromoCode = (updatedPromo: StudioPromoCode) => {
     setPromoCodes((current) =>
       current.map((p) => (p.id === updatedPromo.id ? updatedPromo : p))
     );
+    savePromoToFirestore(updatedPromo).catch(console.warn);
   };
 
   const handleTogglePromoStatus = (promoId: string) => {
+    let promoToSync: StudioPromoCode | undefined;
     setPromoCodes((current) =>
-      current.map((p) => (p.id === promoId ? { ...p, isActive: !p.isActive } : p))
+      current.map((p) => {
+        if (p.id === promoId) {
+          promoToSync = { ...p, isActive: !p.isActive };
+          return promoToSync;
+        }
+        return p;
+      })
     );
+    if (promoToSync) {
+      savePromoToFirestore(promoToSync).catch(console.warn);
+    }
   };
 
   const handleDeletePromoCode = (promoId: string) => {
     setPromoCodes((current) => current.filter((p) => p.id !== promoId));
+    deleteFirestorePromo(promoId).catch(console.warn);
   };
 
   // If not logged in, render the luxury light-theme admin login page

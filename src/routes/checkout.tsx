@@ -3,6 +3,7 @@ import { useState, useId } from 'react';
 import { useStore } from '@/components/storefront';
 import { products, money, pageHead } from '@/lib/store-data';
 import { lookupPincode } from '@/lib/pincode';
+import { saveCustomerOrderToFirestore } from '@/lib/firestore-service';
 import type { Order, OrderItem } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -127,7 +128,7 @@ function CheckoutPage() {
   };
 
   // Place Order Handler
-  const handlePlaceOrder = (e: React.FormEvent) => {
+  const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cart.length) return;
 
@@ -138,7 +139,7 @@ function CheckoutPage() {
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
+    try {
       // Map cart to OrderItems
       const orderItems: OrderItem[] = cart
         .map((item) => {
@@ -168,6 +169,28 @@ function CheckoutPage() {
         trackingNumber: trackingCode,
       };
 
+      // Save order to Cloud Firestore collection 'orders'
+      await saveCustomerOrderToFirestore({
+        ...newOrder,
+        orderNumber: newOrder.id,
+        customerName: fullName,
+        customerEmail: email,
+        customerPhone: phone,
+        paymentMethod,
+        paymentStatus: paymentMethod === 'cod' ? 'Pending (COD)' : 'Paid (Verified)',
+        subtotal,
+        shippingFee: baseShipping,
+        discountAmount,
+        appliedDiscountCode: appliedDiscount?.code || null,
+        shippingAddress: {
+          street,
+          city,
+          state,
+          postalCode,
+          country: 'India',
+        },
+      });
+
       // Add to store session
       addOrder(newOrder, {
         fullName,
@@ -185,7 +208,10 @@ function CheckoutPage() {
       setIsSubmitting(false);
       setPlacedOrder(newOrder);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 850);
+    } catch (err) {
+      console.warn('Checkout order save warning:', err);
+      setIsSubmitting(false);
+    }
   };
 
   // 1. ORDER SUCCESS SCREEN

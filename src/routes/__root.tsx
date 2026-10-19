@@ -14,6 +14,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { StoreProvider, Header, Footer } from "@/components/storefront";
+import { trackFirebaseRoute } from "@/lib/firebase-router";
 
 function NotFoundComponent() {
   return (
@@ -124,6 +125,10 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isAdmin = pathname.startsWith('/admin');
+
+  useEffect(() => {
+    trackFirebaseRoute(pathname);
+  }, [pathname]);
 
   return (
     <QueryClientProvider client={queryClient}>

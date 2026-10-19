@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { useStore } from '@/components/storefront';
 import { pageHead, money } from '@/lib/store-data';
 import { lookupPincode } from '@/lib/pincode';
+import { saveUserProfileToFirestore } from '@/lib/firestore-service';
+import { logoutFirebaseAuth } from '@/lib/firebase-router';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -79,12 +81,13 @@ function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
 
-    setTimeout(() => {
-      updateProfile({
+    try {
+      // Save to Firebase Firestore collection 'users'
+      await saveUserProfileToFirestore(email, {
         fullName,
         email,
         phone,
@@ -96,17 +99,33 @@ function ProfilePage() {
           country,
         },
       });
+    } catch (err) {
+      console.warn('Profile save to Firestore error:', err);
+    }
 
-      setIsSaving(false);
-      setJustSaved(true);
-      setTimeout(() => setJustSaved(false), 3000);
-    }, 350);
+    updateProfile({
+      fullName,
+      email,
+      phone,
+      address: {
+        street,
+        city,
+        state,
+        postalCode,
+        country,
+      },
+    });
+
+    setIsSaving(false);
+    setJustSaved(true);
+    setTimeout(() => setJustSaved(false), 3000);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (window.confirm('Are you sure you want to sign out?')) {
+      await logoutFirebaseAuth();
       logout();
-      navigate({ to: '/' });
+      navigate({ to: '/login' });
     }
   };
 

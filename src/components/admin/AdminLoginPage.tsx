@@ -6,18 +6,18 @@ import {
   Eye,
   EyeOff,
   ShieldCheck,
-  Sparkles,
   ArrowRight,
   AlertCircle,
   CheckCircle2,
+  UserPlus,
+  LogIn,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  ADMIN_CREDENTIALS,
-  validateAdminCredentials,
-  createAdminSession,
+  loginAdminWithFirebase,
+  registerAdminWithFirebase,
   saveStoredAdminSession,
   AdminSession,
 } from '@/lib/admin-auth';
@@ -27,6 +27,7 @@ interface AdminLoginPageProps {
 }
 
 export function AdminLoginPage({ onLoginSuccess }: AdminLoginPageProps) {
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -35,32 +36,49 @@ export function AdminLoginPage({ onLoginSuccess }: AdminLoginPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setError('Please enter a valid administrator email address.');
+      return;
+    }
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
     setIsLoading(true);
 
-    setTimeout(() => {
-      if (validateAdminCredentials(email, password)) {
-        const session = createAdminSession(email);
-        if (rememberMe) {
-          saveStoredAdminSession(session);
-        }
+    try {
+      let result;
+      if (isRegisterMode) {
+        result = await registerAdminWithFirebase(cleanEmail, password);
+      } else {
+        result = await loginAdminWithFirebase(cleanEmail, password);
+      }
+
+      if (result.success && result.session) {
+        saveStoredAdminSession(result.session);
         setLoginSuccess(true);
         setTimeout(() => {
-          onLoginSuccess(session);
-        }, 500);
+          if (result.session) {
+            onLoginSuccess(result.session);
+          }
+        }, 150);
       } else {
         setIsLoading(false);
-        setError('Invalid credentials. Please verify your administrator email and password.');
+        setError(
+          result.error ||
+            'Authentication failed. Please verify your administrator credentials.'
+        );
       }
-    }, 450);
-  };
-
-  const handleQuickFill = () => {
-    setEmail(ADMIN_CREDENTIALS.email);
-    setPassword(ADMIN_CREDENTIALS.password);
-    setError('');
+    } catch (err: any) {
+      setIsLoading(false);
+      setError(err?.message || 'Authentication error. Please try again.');
+    }
   };
 
   return (
@@ -108,11 +126,47 @@ export function AdminLoginPage({ onLoginSuccess }: AdminLoginPageProps) {
               <LockKeyhole className="w-6 h-6" />
             </div>
             <h1 className="font-display text-2xl font-semibold tracking-tight text-[#1C1917]">
-              Admin Portal Login
+              Admin Portal
             </h1>
             <p className="text-xs text-[#78716C] max-w-xs mx-auto leading-relaxed">
-              Sign in with your administrator credentials to manage orders, products, customers, and promocodes.
+              {isRegisterMode
+                ? 'Create and register administrator credentials in Firebase Authentication.'
+                : 'Sign in with your Firebase administrator credentials to access the store management console.'}
             </p>
+          </div>
+
+          {/* Mode Switcher (Sign In vs Register Admin) */}
+          <div className="grid grid-cols-2 p-1 bg-[#FAF8F5] border border-[#EAE4DC] rounded-2xl gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                setIsRegisterMode(false);
+                setError('');
+              }}
+              className={`py-2 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+                !isRegisterMode
+                  ? 'bg-white text-[#1C1917] shadow-xs border border-[#EAE4DC]'
+                  : 'text-[#78716C] hover:text-[#1C1917]'
+              }`}
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsRegisterMode(true);
+                setError('');
+              }}
+              className={`py-2 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+                isRegisterMode
+                  ? 'bg-white text-[#1C1917] shadow-xs border border-[#EAE4DC]'
+                  : 'text-[#78716C] hover:text-[#1C1917]'
+              }`}
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Create Admin</span>
+            </button>
           </div>
 
           {/* Error Message */}
@@ -123,34 +177,16 @@ export function AdminLoginPage({ onLoginSuccess }: AdminLoginPageProps) {
             </div>
           )}
 
-          {/* Quick Demo Fill Pill */}
-          <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#EAE4DC] flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#A67C2E]" />
-              <div className="text-[11px]">
-                <span className="text-[#1C1917] font-semibold block">Admin Credentials</span>
-                <span className="text-[#78716C] font-mono">admin@gmail.com • admin123</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleQuickFill}
-              className="text-[11px] font-semibold text-[#A67C2E] hover:text-[#8C6420] bg-white px-2.5 py-1 rounded-lg border border-[#EAE4DC] shadow-2xs hover:bg-[#F5EFE6] transition-colors"
-            >
-              Autofill
-            </button>
-          </div>
-
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4 text-xs">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-[#44403C]">Email Address</Label>
+              <Label className="text-xs font-medium text-[#44403C]">Administrator Email</Label>
               <div className="relative">
                 <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#A8A29E]" />
                 <Input
                   type="email"
                   required
-                  placeholder="admin@gmail.com"
+                  placeholder="admin@crystellestudio.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-9 h-11 bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] focus-visible:ring-[#C59A44]"
@@ -159,16 +195,13 @@ export function AdminLoginPage({ onLoginSuccess }: AdminLoginPageProps) {
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-medium text-[#44403C]">Password</Label>
-                <span className="text-[10px] text-[#A8A29E] font-mono">admin123</span>
-              </div>
+              <Label className="text-xs font-medium text-[#44403C]">Password</Label>
               <div className="relative">
                 <LockKeyhole className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#A8A29E]" />
                 <Input
                   type={showPassword ? 'text' : 'password'}
                   required
-                  placeholder="admin123"
+                  placeholder="Enter administrator password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-9 pr-10 h-11 bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] focus-visible:ring-[#C59A44]"
@@ -177,6 +210,7 @@ export function AdminLoginPage({ onLoginSuccess }: AdminLoginPageProps) {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A8A29E] hover:text-[#1C1917]"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -194,7 +228,7 @@ export function AdminLoginPage({ onLoginSuccess }: AdminLoginPageProps) {
                 <span>Remember session</span>
               </label>
 
-              <span className="text-[#A8A29E] text-[11px] font-mono">Protected</span>
+              <span className="text-[#A8A29E] text-[11px] font-mono">Firebase Auth</span>
             </div>
 
             <Button
@@ -203,11 +237,16 @@ export function AdminLoginPage({ onLoginSuccess }: AdminLoginPageProps) {
               className="w-full h-11 bg-[#C59A44] hover:bg-[#B58934] text-white font-semibold text-xs tracking-wide transition-all shadow-sm rounded-xl flex items-center justify-center gap-2 mt-2"
             >
               {isLoading ? (
-                <span>Verifying Credentials...</span>
+                <span>Authenticating with Firebase...</span>
               ) : loginSuccess ? (
                 <span className="flex items-center gap-1.5 text-white font-bold">
-                  <CheckCircle2 className="w-4 h-4" /> Access Granted
+                  <CheckCircle2 className="w-4 h-4" /> Authenticated
                 </span>
+              ) : isRegisterMode ? (
+                <>
+                  <span>Create Admin Account in Firebase</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
               ) : (
                 <>
                   <span>Sign In to Admin Panel</span>
@@ -220,7 +259,7 @@ export function AdminLoginPage({ onLoginSuccess }: AdminLoginPageProps) {
           {/* Security Notice */}
           <div className="pt-2 border-t border-[#F0ECE6] flex items-center justify-center gap-1.5 text-[11px] text-[#A8A29E]">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Encrypted Administrator Session</span>
+            <span>Secured via Google Firebase Authentication</span>
           </div>
         </div>
       </main>

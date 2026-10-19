@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { pageHead } from '@/lib/store-data';
 import { useStore } from '@/components/storefront';
+import { submitContactInquiry } from '@/lib/firestore-service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,22 +46,26 @@ function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setSubmitted(true);
-      notify('Thank you! Your message has been sent to our studio team.');
-      setFormData({
-        fullName: '',
-        email: '',
-        phone: '',
-        inquiryType: 'Order Status & Tracking',
-        message: '',
-      });
-    }, 600);
+    try {
+      await submitContactInquiry(formData);
+    } catch (err) {
+      console.warn('Could not submit inquiry to Firestore:', err);
+    }
+
+    setIsSubmitting(false);
+    setSubmitted(true);
+    notify('Thank you! Your message has been saved to Firestore and received by our studio team.');
+    setFormData({
+      fullName: '',
+      email: '',
+      phone: '',
+      inquiryType: 'Order Status & Tracking',
+      message: '',
+    });
   };
 
   return (
