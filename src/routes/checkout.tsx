@@ -1,10 +1,11 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { useState, useId } from 'react';
+import { useState, useId, useEffect } from 'react';
 import { useStore } from '@/components/storefront';
 import { products, money, pageHead } from '@/lib/store-data';
 import { lookupPincode } from '@/lib/pincode';
 import { saveCustomerOrderToFirestore } from '@/lib/firestore-service';
 import type { Order, OrderItem } from '@/lib/auth';
+import { openRazorpayModal, loadRazorpayScript } from '@/lib/razorpay';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,11 +40,16 @@ export const Route = createFileRoute('/checkout')({
   component: CheckoutPage,
 });
 
-type PaymentMethod = 'upi' | 'card' | 'cod' | 'netbanking';
+type PaymentMethod = 'online' | 'cod';
 
 function CheckoutPage() {
   const { cart, user, addOrder, notify } = useStore();
   const navigate = useNavigate();
+
+  // Safely preload Razorpay script on client-side after hydration
+  useEffect(() => {
+    loadRazorpayScript();
+  }, []);
 
   // If user has saved profile, pre-fill all fields for a 1-step checkout!
   const [fullName, setFullName] = useState(user?.fullName || '');
@@ -77,12 +83,12 @@ function CheckoutPage() {
     }
   };
 
-  // Payment states
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('upi');
-  const [upiId, setUpiId] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
+  // Payment states - only Pay Online (Razorpay) and Cash On Delivery
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('online');
+  const [paymentDetails, setPaymentDetails] = useState<{
+    paymentId?: string;
+    orderId?: string;
+  } | null>(null);
 
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
@@ -137,6 +143,11 @@ function CheckoutPage() {
       return;
     }
 
+    if (postalCode.trim().length !== 6) {
+      notify('Please enter a valid 6-digit PIN code.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -160,56 +171,183 @@ function CheckoutPage() {
       const orderNumber = 'CS-ORD-' + Math.floor(10000 + Math.random() * 90000);
       const trackingCode = 'IND-CRYST-' + Math.floor(10000 + Math.random() * 90000);
 
-      const newOrder: Order = {
-        id: orderNumber,
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        status: 'Processing',
-        total: finalTotal,
-        items: orderItems,
-        trackingNumber: trackingCode,
-      };
+      // Branch 1: CASH ON DELIVERY
+      if (paymentMethod === 'cod') {
+        const newOrder: Order = {
+          id: orderNumber,
+          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          status: 'Processing',
+          total: finalTotal,
+          items: orderItems,
+          trackingNumber: trackingCode,
+        };
 
-      // Save order to Cloud Firestore collection 'orders'
-      await saveCustomerOrderToFirestore({
-        ...newOrder,
-        orderNumber: newOrder.id,
-        customerName: fullName,
-        customerEmail: email,
-        customerPhone: phone,
-        paymentMethod,
-        paymentStatus: paymentMethod === 'cod' ? 'Pending (COD)' : 'Paid (Verified)',
-        subtotal,
-        shippingFee: baseShipping,
-        discountAmount,
-        appliedDiscountCode: appliedDiscount?.code || null,
-        shippingAddress: {
-          street,
-          city,
-          state,
-          postalCode,
-          country: 'India',
-        },
+        // Save order to Cloud Firestore collection 'orders'
+        await saveCustomerOrderToFirestore({
+          ...newOrder,
+          orderNumber: newOrder.id,
+          customerName: fullName,
+          customerEmail: email,
+          customerPhone: phone,
+          paymentMethod: 'cod',
+          paymentStatus: 'Pending (COD)',
+          subtotal,
+          shippingFee: baseShipping,
+          discountAmount,
+          appliedDiscountCode: appliedDiscount?.code || null,
+          shippingAddress: {
+            street,
+            city,
+            state,
+            postalCode,
+            country: 'India',
+          },
+        });
+
+        // Add to store session
+        addOrder(newOrder, {
+          fullName,
+          email,
+          phone,
+          address: {
+            street,
+            city,
+            state,
+            postalCode,
+            country: 'India',
+          },
+        });
+
+        setIsSubmitting(false);
+        setPlacedOrder(newOrder);
+        setPaymentDetails(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      // Branch 2: PAY ONLINE VIA RAZORPAY
+      // STEP 1: Call Backend to Create Order
+      const createOrderRes = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: Math.round(finalTotal * 100), // in paise, minimum 100 paise
+          currency: 'INR',
+          receipt: orderNumber,
+        }),
       });
 
-      // Add to store session
-      addOrder(newOrder, {
-        fullName,
-        email,
-        phone,
-        address: {
-          street,
-          city,
-          state,
-          postalCode,
-          country: 'India',
+      const orderData = await createOrderRes.json().catch(() => ({}));
+
+      if (!createOrderRes.ok || !orderData.order_id) {
+        throw new Error(orderData.error || 'Failed to initialize payment gateway.');
+      }
+
+      // STEP 2: Open Razorpay Standard Checkout Modal
+      await openRazorpayModal({
+        orderId: orderData.order_id,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'Crystelle Studio',
+        description: `Order ${orderNumber} (${orderItems.length} handcrafted candle${orderItems.length > 1 ? 's' : ''})`,
+        prefill: {
+          name: fullName,
+          email,
+          contact: phone,
+        },
+        onDismiss: () => {
+          setIsSubmitting(false);
+          notify('Payment was cancelled. You can retry whenever you are ready.');
+        },
+        onFailure: (err) => {
+          setIsSubmitting(false);
+          notify(`Payment failed: ${err?.description || 'Transaction declined by bank.'}`);
+        },
+        onSuccess: async (razorpayResponse) => {
+          try {
+            // STEP 3: Call Backend to Verify Payment Signature
+            const verifyRes = await fetch('/api/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: razorpayResponse.razorpay_order_id,
+                razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+                razorpay_signature: razorpayResponse.razorpay_signature,
+              }),
+            });
+
+            const verifyData = await verifyRes.json().catch(() => ({}));
+
+            if (!verifyRes.ok || !verifyData.success) {
+              notify(`Payment verification failed: ${verifyData?.error || 'Invalid signature'}`);
+              setIsSubmitting(false);
+              return;
+            }
+
+            // Confirmed & Verified! Create order record
+            const newOrder: Order = {
+              id: orderNumber,
+              date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+              status: 'Processing',
+              total: finalTotal,
+              items: orderItems,
+              trackingNumber: trackingCode,
+            };
+
+            await saveCustomerOrderToFirestore({
+              ...newOrder,
+              orderNumber: newOrder.id,
+              customerName: fullName,
+              customerEmail: email,
+              customerPhone: phone,
+              paymentMethod: 'online',
+              paymentStatus: 'Paid (Razorpay Verified)',
+              razorpayPaymentId: razorpayResponse.razorpay_payment_id,
+              razorpayOrderId: razorpayResponse.razorpay_order_id,
+              razorpaySignature: razorpayResponse.razorpay_signature,
+              subtotal,
+              shippingFee: baseShipping,
+              discountAmount,
+              appliedDiscountCode: appliedDiscount?.code || null,
+              shippingAddress: {
+                street,
+                city,
+                state,
+                postalCode,
+                country: 'India',
+              },
+            });
+
+            addOrder(newOrder, {
+              fullName,
+              email,
+              phone,
+              address: {
+                street,
+                city,
+                state,
+                postalCode,
+                country: 'India',
+              },
+            });
+
+            setPaymentDetails({
+              paymentId: razorpayResponse.razorpay_payment_id,
+              orderId: razorpayResponse.razorpay_order_id,
+            });
+            setPlacedOrder(newOrder);
+            setIsSubmitting(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } catch (verifyErr: any) {
+            console.error('Error completing verified order:', verifyErr);
+            notify(`Order saved with payment ID ${razorpayResponse.razorpay_payment_id}. Please contact studio support if confirmation email is not received.`);
+            setIsSubmitting(false);
+          }
         },
       });
-
-      setIsSubmitting(false);
-      setPlacedOrder(newOrder);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err) {
-      console.warn('Checkout order save warning:', err);
+    } catch (err: any) {
+      console.error('Checkout processing error:', err);
+      notify(err?.message || 'Checkout failed. Please check your details and try again.');
       setIsSubmitting(false);
     }
   };
@@ -251,9 +389,15 @@ function CheckoutPage() {
                 <span className="label">Payment Status</span>
                 <span className="text-emerald-700 font-semibold flex items-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  {paymentMethod === 'cod' ? 'Cash on Delivery (Verified)' : 'Prepaid • Secured'}
+                  {paymentMethod === 'cod' ? 'Cash on Delivery (Pay at Doorstep)' : 'Paid Online • Verified via Razorpay'}
                 </span>
               </div>
+              {paymentDetails?.paymentId && (
+                <div className="tracking-preview-item">
+                  <span className="label">Razorpay Payment ID</span>
+                  <code className="text-emerald-800 font-semibold text-xs">{paymentDetails.paymentId}</code>
+                </div>
+              )}
             </div>
 
             {/* Summary Details Grid */}
@@ -505,45 +649,32 @@ function CheckoutPage() {
               </div>
 
               <div className="checkout-step-body">
-                {/* Method Selector Pills */}
+                {/* Method Selector Pills: Only 2 options */}
                 <div className="payment-options-grid">
-                  {/* UPI */}
-                  <label className={`payment-pill ${paymentMethod === 'upi' ? 'active' : ''}`}>
+                  {/* Option 1: Pay Online (Razorpay) */}
+                  <label className={`payment-pill ${paymentMethod === 'online' ? 'active' : ''}`}>
                     <input
                       type="radio"
                       name="paymentMethod"
-                      value="upi"
-                      checked={paymentMethod === 'upi'}
-                      onChange={() => setPaymentMethod('upi')}
+                      value="online"
+                      checked={paymentMethod === 'online'}
+                      onChange={() => setPaymentMethod('online')}
                     />
                     <div className="pill-content">
                       <div className="pill-title">
-                        <QrCode className="w-4 h-4 text-amber-700" />
-                        <strong>UPI (GPay / PhonePe / QR)</strong>
+                        <CreditCard className="w-4 h-4 text-amber-700" />
+                        <div>
+                          <strong>Pay Online</strong>
+                          <span className="text-xs text-muted-foreground block font-normal">
+                            UPI (GPay / PhonePe / Paytm), Cards, NetBanking, Wallets
+                          </span>
+                        </div>
                       </div>
-                      <span className="pill-badge-green">Instant &bull; 0% Fee</span>
+                      <span className="pill-badge-green">Instant &bull; 100% Encrypted</span>
                     </div>
                   </label>
 
-                  {/* Cards */}
-                  <label className={`payment-pill ${paymentMethod === 'card' ? 'active' : ''}`}>
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="card"
-                      checked={paymentMethod === 'card'}
-                      onChange={() => setPaymentMethod('card')}
-                    />
-                    <div className="pill-content">
-                      <div className="pill-title">
-                        <CreditCard className="w-4 h-4 text-foreground" />
-                        <strong>Credit / Debit Card</strong>
-                      </div>
-                      <span className="pill-desc">Visa, Mastercard, RuPay</span>
-                    </div>
-                  </label>
-
-                  {/* Cash on Delivery */}
+                  {/* Option 2: Cash on Delivery */}
                   <label className={`payment-pill ${paymentMethod === 'cod' ? 'active' : ''}`}>
                     <input
                       type="radio"
@@ -555,74 +686,46 @@ function CheckoutPage() {
                     <div className="pill-content">
                       <div className="pill-title">
                         <Banknote className="w-4 h-4 text-emerald-700" />
-                        <strong>Cash on Delivery (COD)</strong>
+                        <div>
+                          <strong>Cash on Delivery (COD)</strong>
+                          <span className="text-xs text-muted-foreground block font-normal">
+                            Pay with cash at doorstep upon delivery
+                          </span>
+                        </div>
                       </div>
-                      <span className="pill-desc">Pay at doorstep upon delivery</span>
+                      <span className="pill-desc">Doorstep Verification</span>
                     </div>
                   </label>
                 </div>
 
-                {/* Sub-inputs based on method */}
-                {paymentMethod === 'upi' && (
+                {/* Sub-inputs / Details based on chosen method */}
+                {paymentMethod === 'online' && (
                   <div className="payment-subpanel">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Sparkles className="w-4 h-4 text-amber-600" />
-                      <span className="text-xs font-medium">Fastest Checkout via UPI</span>
+                    <div className="flex items-center gap-2 mb-2 text-amber-800">
+                      <ShieldCheck className="w-4 h-4 text-amber-600" />
+                      <span className="text-xs font-semibold tracking-wide uppercase">
+                        Razorpay Standard Secure Web Checkout
+                      </span>
                     </div>
-                    <div className="checkout-input-wrap">
-                      <Input
-                        value={upiId}
-                        onChange={(e) => setUpiId(e.target.value)}
-                        placeholder="Enter your UPI ID (e.g. mobile@upi, name@okhdfcbank)"
-                      />
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Pay instantly and securely using your favorite UPI app (<strong>Google Pay, PhonePe, Paytm, BHIM</strong>), any <strong>Credit / Debit Card</strong> (Visa, Mastercard, RuPay), or <strong>NetBanking</strong> across 50+ banks.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-border/60">
+                      <span className="text-[11px] font-medium text-foreground">Accepted Methods:</span>
+                      <span className="inline-flex items-center text-[11px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-900 font-medium">⚡ UPI</span>
+                      <span className="inline-flex items-center text-[11px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-900 font-medium">💳 Debit / Credit Cards</span>
+                      <span className="inline-flex items-center text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-900 font-medium">🏦 NetBanking</span>
+                      <span className="inline-flex items-center text-[11px] px-2 py-0.5 rounded bg-purple-500/10 text-purple-900 font-medium">👛 Wallets</span>
                     </div>
-                    <span className="text-xs text-muted-foreground mt-2 block">
-                      A payment request will be sent to your UPI app, or you can scan the QR code upon placing order.
-                    </span>
-                  </div>
-                )}
-
-                {paymentMethod === 'card' && (
-                  <div className="payment-subpanel">
-                    <div className="checkout-field mb-3">
-                      <Label htmlFor="checkout-cardNumber">Card Number</Label>
-                      <Input
-                        id="checkout-cardNumber"
-                        value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value)}
-                        placeholder="4532 •••• •••• 8841"
-                        maxLength={19}
-                      />
-                    </div>
-                    <div className="form-row-2">
-                      <div className="checkout-field">
-                        <Label htmlFor="checkout-expiry">MM / YY</Label>
-                        <Input
-                          id="checkout-expiry"
-                          value={cardExpiry}
-                          onChange={(e) => setCardExpiry(e.target.value)}
-                          placeholder="12/28"
-                          maxLength={5}
-                        />
-                      </div>
-                      <div className="checkout-field">
-                        <Label htmlFor="checkout-cvv">CVV</Label>
-                        <Input
-                          id="checkout-cvv"
-                          type="password"
-                          value={cardCvv}
-                          onChange={(e) => setCardCvv(e.target.value)}
-                          placeholder="•••"
-                          maxLength={4}
-                        />
-                      </div>
-                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-2">
+                      Clicking <strong>Pay Online</strong> below will securely open the official Razorpay checkout window.
+                    </p>
                   </div>
                 )}
 
                 {paymentMethod === 'cod' && (
                   <div className="payment-subpanel">
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
                       Please have the exact cash amount of <strong>{money(finalTotal)}</strong> ready at the time of delivery. You will receive an SMS and WhatsApp confirmation before our courier arrives.
                     </p>
                   </div>
@@ -636,11 +739,22 @@ function CheckoutPage() {
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? (
-                      'Securing & Placing Order...'
+                      paymentMethod === 'online' ? (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                          <span>Connecting to Razorpay...</span>
+                        </>
+                      ) : (
+                        'Placing Order...'
+                      )
                     ) : (
                       <>
                         <ShieldCheck className="w-4 h-4 mr-2" />
-                        <span>Place Order &bull; {money(finalTotal)}</span>
+                        <span>
+                          {paymentMethod === 'online'
+                            ? `Pay Online • ${money(finalTotal)}`
+                            : `Place COD Order • ${money(finalTotal)}`}
+                        </span>
                       </>
                     )}
                   </Button>
