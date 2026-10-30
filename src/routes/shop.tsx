@@ -6,7 +6,7 @@ import { categories, getStoredProducts } from '@/lib/store-data';
 import { seoHead } from '@/lib/seo';
 
 export const Route = createFileRoute('/shop')({
-  validateSearch: (search: Record<string, unknown>): { q?: string; category?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { q?: string | undefined; category?: string | undefined } => ({
     q: typeof search['q'] === 'string' ? search['q'] : undefined,
     category: typeof search['category'] === 'string' ? search['category'] : undefined,
   }),

@@ -22,7 +22,7 @@ export function razorpayApiPlugin(): Plugin {
         if (url === '/sitemap.xml' || url === '/sitemap') {
           const host = req.headers['host'] || 'localhost:3000';
           const proto = req.headers['x-forwarded-proto'] || 'http';
-          const baseUrl = process.env.VITE_SITE_URL || `${proto}://${host}`;
+          const baseUrl = process.env['VITE_SITE_URL'] || `${proto}://${host}`;
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/xml; charset=utf-8');
           res.setHeader('Cache-Control', 'public, max-age=3600');
@@ -33,7 +33,7 @@ export function razorpayApiPlugin(): Plugin {
         if (url === '/robots.txt') {
           const host = req.headers['host'] || 'localhost:3000';
           const proto = req.headers['x-forwarded-proto'] || 'http';
-          const baseUrl = process.env.VITE_SITE_URL || `${proto}://${host}`;
+          const baseUrl = process.env['VITE_SITE_URL'] || `${proto}://${host}`;
           res.statusCode = 200;
           res.setHeader('Content-Type', 'text/plain; charset=utf-8');
           res.setHeader('Cache-Control', 'public, max-age=3600');

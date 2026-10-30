@@ -40,6 +40,7 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [manualUrl, setManualUrl] = useState(value || '');
+  const lastDataUrlRef = useRef<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -55,6 +56,13 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
       setUploadError('Please select a valid video file (MP4, WebM, MOV).');
       return;
     }
+
+    // Cache local data URL preview as instant fallback in case Cloudinary API is unavailable
+    const reader = new FileReader();
+    reader.onload = () => {
+      lastDataUrlRef.current = reader.result as string;
+    };
+    reader.readAsDataURL(file);
 
     setUploadError(null);
     setIsUploading(true);
@@ -264,9 +272,42 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
       />
 
       {uploadError && (
-        <div className="flex items-center gap-1.5 text-[11px] text-red-600 bg-red-50 p-2 rounded-xl border border-red-200">
-          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-          <span>{uploadError}</span>
+        <div className="space-y-2 text-[11px] text-red-700 bg-red-50 p-3 rounded-xl border border-red-200">
+          <div className="flex items-start gap-1.5">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-600" />
+            <span className="leading-relaxed">{uploadError}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-red-200/60">
+            {lastDataUrlRef.current && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (lastDataUrlRef.current) {
+                    onChange(lastDataUrlRef.current, undefined);
+                    setManualUrl(lastDataUrlRef.current);
+                    setUploadError(null);
+                  }
+                }}
+                className="h-7 text-[10px] bg-white hover:bg-amber-50 text-amber-900 border-amber-300 font-medium"
+              >
+                Use Selected Image Directly (Data URL)
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setShowUrlInput(true);
+                setUploadError(null);
+              }}
+              className="h-7 text-[10px] text-[#A67C2E] hover:underline"
+            >
+              Enter Image URL Manually
+            </Button>
+          </div>
         </div>
       )}
     </div>

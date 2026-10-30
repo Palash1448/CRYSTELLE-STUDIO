@@ -85,7 +85,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "application-name", content: "Crystelle Studio" },
       { name: "apple-mobile-web-app-title", content: "Crystelle Studio" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { name: "google-site-verification", content: import.meta.env?.VITE_GOOGLE_SITE_VERIFICATION || "r-UpwBpAQWmp4lW6ERdKnw5cPyQB3M_jA6zeJBZyFjA" },
+      { name: "google-site-verification", content: (typeof import.meta !== 'undefined' && import.meta.env?.['VITE_GOOGLE_SITE_VERIFICATION']) || "r-UpwBpAQWmp4lW6ERdKnw5cPyQB3M_jA6zeJBZyFjA" },
       { title: "Crystelle Studio — Handcrafted Candles & Fragrances" },
       { name: "description", content: "Handcrafted candles to create a warmer, brighter and calmer space." },
       { property: "og:type", content: "website" },

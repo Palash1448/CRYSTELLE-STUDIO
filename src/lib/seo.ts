@@ -1,9 +1,9 @@
 import { type Product } from './store-data';
 
 export const SITE_URL = (
-  typeof process !== 'undefined' && process.env?.VITE_SITE_URL
-    ? process.env.VITE_SITE_URL
-    : import.meta.env?.VITE_SITE_URL || 'https://www.crystellestudio.in'
+  typeof process !== 'undefined' && process.env?.['VITE_SITE_URL']
+    ? process.env['VITE_SITE_URL']
+    : (typeof import.meta !== 'undefined' && import.meta.env?.['VITE_SITE_URL']) || 'https://www.crystellestudio.in'
 ).replace(/\/$/, '');
 
 export const SITE_NAME = 'Crystelle Studio';
@@ -37,8 +37,8 @@ export interface FaqItem {
 export interface BlogArticleData {
   title: string;
   body: string;
-  image?: string;
-  date?: string;
+  image?: string | undefined;
+  date?: string | undefined;
 }
 
 export interface SeoOptions {

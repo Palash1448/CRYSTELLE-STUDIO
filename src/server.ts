@@ -64,8 +64,8 @@ export default {
           (url.protocol ? url.protocol.replace(':', '') : 'https') ||
           'https';
         const siteUrl = (
-          (env as Record<string, string>)?.VITE_SITE_URL ||
-          (typeof process !== 'undefined' && process.env?.VITE_SITE_URL) ||
+          (env as Record<string, string>)?.[`VITE_SITE_URL`] ||
+          (typeof process !== 'undefined' && process.env?.['VITE_SITE_URL']) ||
           `${proto}://${host}`
         ).replace(/\/$/, '');
 
@@ -88,8 +88,8 @@ export default {
           (url.protocol ? url.protocol.replace(':', '') : 'https') ||
           'https';
         const siteUrl = (
-          (env as Record<string, string>)?.VITE_SITE_URL ||
-          (typeof process !== 'undefined' && process.env?.VITE_SITE_URL) ||
+          (env as Record<string, string>)?.[`VITE_SITE_URL`] ||
+          (typeof process !== 'undefined' && process.env?.['VITE_SITE_URL']) ||
           `${proto}://${host}`
         ).replace(/\/$/, '');
 
