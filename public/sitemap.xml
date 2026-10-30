@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <!-- Homepage -->
   <url>
-    <loc>https://crystellestudio.in/</loc>
+    <loc>https://www.crystellestudio.in/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
@@ -10,7 +10,7 @@
 
   <!-- Shop All Candles -->
   <url>
-    <loc>https://crystellestudio.in/shop</loc>
+    <loc>https://www.crystellestudio.in/shop</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
@@ -18,7 +18,7 @@
 
   <!-- Collections -->
   <url>
-    <loc>https://crystellestudio.in/collections</loc>
+    <loc>https://www.crystellestudio.in/collections</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -26,7 +26,7 @@
 
   <!-- Blog & Candle Care Guide -->
   <url>
-    <loc>https://crystellestudio.in/blog</loc>
+    <loc>https://www.crystellestudio.in/blog</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -34,7 +34,7 @@
 
   <!-- About Us -->
   <url>
-    <loc>https://crystellestudio.in/about</loc>
+    <loc>https://www.crystellestudio.in/about</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -42,7 +42,7 @@
 
   <!-- Contact Us & Workshop Location -->
   <url>
-    <loc>https://crystellestudio.in/contact</loc>
+    <loc>https://www.crystellestudio.in/contact</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -50,7 +50,7 @@
 
   <!-- Shipping & Delivery Policy -->
   <url>
-    <loc>https://crystellestudio.in/shipping-policy</loc>
+    <loc>https://www.crystellestudio.in/shipping-policy</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
@@ -58,7 +58,7 @@
 
   <!-- Privacy Policy -->
   <url>
-    <loc>https://crystellestudio.in/privacy-policy</loc>
+    <loc>https://www.crystellestudio.in/privacy-policy</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
@@ -66,7 +66,7 @@
 
   <!-- Terms & Conditions -->
   <url>
-    <loc>https://crystellestudio.in/terms-and-conditions</loc>
+    <loc>https://www.crystellestudio.in/terms-and-conditions</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
