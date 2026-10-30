@@ -1,13 +1,18 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { pageHead } from '@/lib/store-data';
+import { seoHead } from '@/lib/seo';
 import { ShieldCheck, Mail, Phone, MapPin, Building2, CheckCircle2, FileText, ArrowRight } from 'lucide-react';
 
 export const Route = createFileRoute('/privacy-policy')({
   head: () =>
-    pageHead(
-      'Privacy Policy | Crystelle Studio',
-      'Official Privacy Policy for Crystelle Studio (Udyam: UDYAM-MH-34-0059212). Learn how we protect your personal information and transaction data.'
-    ),
+    seoHead({
+      title: 'Privacy Policy',
+      description:
+        'Official Privacy Policy for Crystelle Studio (Udyam: UDYAM-MH-34-0059212). Learn how we protect your personal customer data and payment transactions.',
+      path: '/privacy-policy',
+      breadcrumbs: [{ name: 'Privacy Policy', path: '/privacy-policy' }],
+      keywords: 'crystelle studio privacy policy, customer data protection, e-commerce privacy India',
+    }),
   component: PrivacyPolicyPage,
 });
 

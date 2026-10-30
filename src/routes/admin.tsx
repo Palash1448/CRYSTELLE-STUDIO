@@ -24,6 +24,7 @@ import {
   fetchFirestoreOrders,
   saveAdminOrderToFirestore,
   deleteFirestoreOrder,
+  fetchFirestoreProducts,
   saveProductToFirestore,
   deleteFirestoreProduct,
   saveCustomerToFirestore,
@@ -39,12 +40,14 @@ import {
   StudioCustomer,
   StudioPromoCode,
 } from '@/lib/admin-data';
-import { products } from '@/lib/store-data';
+import { products, DUMMY_PRODUCT_IDS } from '@/lib/store-data';
 
 export const Route = createFileRoute('/admin')({
   head: () => ({
     meta: [
       { title: 'Admin Panel — Crystelle Studio' },
+      { name: 'robots', content: 'noindex, nofollow' },
+      { name: 'googlebot', content: 'noindex, nofollow' },
       {
         name: 'description',
         content: 'Administrator console for orders, products, customers, promocodes, and invoices.',
@@ -110,33 +113,50 @@ function AdminPage() {
   };
 
   // State management with localStorage persistence
+  // State management with localStorage persistence (Only real orders, no dummy data)
   const [orders, setOrders] = useState<StudioOrder[]>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('crystelle_admin_orders');
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length >= initialOrders.length) {
-            return parsed;
+          if (Array.isArray(parsed)) {
+            // Purge all legacy dummy orders
+            const realOnly = parsed.filter(
+              (o) =>
+                o &&
+                o.id &&
+                !o.id.startsWith('ord-') &&
+                !o.orderNumber?.startsWith('#CS-984')
+            );
+            localStorage.setItem('crystelle_admin_orders', JSON.stringify(realOnly));
+            return realOnly;
           }
         }
       } catch (e) {
         console.warn('Failed to parse cached admin orders', e);
       }
     }
-    return initialOrders;
+    return [];
   });
 
   const [productsList, setProductsList] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('crystelle_admin_products');
-        if (saved) return JSON.parse(saved);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            const clean = parsed.filter((p: any) => p && p.id && !DUMMY_PRODUCT_IDS.has(p.id));
+            localStorage.setItem('crystelle_admin_products', JSON.stringify(clean));
+            return clean;
+          }
+        }
       } catch (e) {
         console.warn('Failed to parse cached admin products', e);
       }
     }
-    return products;
+    return [];
   });
 
   const [customers, setCustomers] = useState<StudioCustomer[]>(() => {
@@ -188,23 +208,75 @@ function AdminPage() {
     }
   }, [promoCodes]);
 
-  // Synchronize remote orders from Firestore into Admin on authentication
+  // Synchronize remote orders from Firestore into Admin on authentication (Excluding dummy orders)
   useEffect(() => {
     if (!adminSession) return;
     let isMounted = true;
 
     fetchFirestoreOrders()
       .then((remoteOrders) => {
-        if (!isMounted || !remoteOrders || remoteOrders.length === 0) return;
+        if (!isMounted || !remoteOrders) return;
+
+        // Auto-purge any dummy orders if found in Firestore
+        remoteOrders.forEach((ro) => {
+          if (ro.id?.startsWith('ord-') || ro.orderNumber?.startsWith('#CS-984')) {
+            deleteFirestoreOrder(ro.id).catch(() => {});
+          }
+        });
+
+        const realRemote = remoteOrders.filter(
+          (ro) =>
+            ro &&
+            ro.id &&
+            !ro.id.startsWith('ord-') &&
+            !ro.orderNumber?.startsWith('#CS-984')
+        );
+
         setOrders((prev) => {
-          const existingIds = new Set(prev.map((o) => o.id));
-          const newOnes = remoteOrders.filter((ro) => !existingIds.has(ro.id));
-          if (newOnes.length === 0) return prev;
-          return [...newOnes, ...prev];
+          const cleanPrev = prev.filter(
+            (o) =>
+              o &&
+              o.id &&
+              !o.id.startsWith('ord-') &&
+              !o.orderNumber?.startsWith('#CS-984')
+          );
+          const existingIds = new Set(cleanPrev.map((o) => o.id));
+          const newOnes = realRemote.filter((ro) => !existingIds.has(ro.id));
+          return [...newOnes, ...cleanPrev];
         });
       })
       .catch((err) => {
         console.warn('Firestore orders sync notice:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [adminSession]);
+
+  // Synchronize remote products from Firestore into Admin (Excluding dummy products)
+  useEffect(() => {
+    if (!adminSession) return;
+    let isMounted = true;
+
+    fetchFirestoreProducts()
+      .then((remoteProds) => {
+        if (!isMounted || !remoteProds) return;
+        remoteProds.forEach((rp) => {
+          if (DUMMY_PRODUCT_IDS.has(rp.id)) {
+            deleteFirestoreProduct(rp.id).catch(() => {});
+          }
+        });
+        const realProds = remoteProds.filter((rp) => rp && rp.id && !DUMMY_PRODUCT_IDS.has(rp.id));
+        if (realProds.length > 0) {
+          setProductsList(realProds);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('crystelle_admin_products', JSON.stringify(realProds));
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Firestore products sync notice:', err);
       });
 
     return () => {
@@ -490,6 +562,7 @@ function AdminPage() {
         isOpen={Boolean(selectedOrderForDetails)}
         onClose={() => setSelectedOrderForDetails(null)}
         onUpdateStatus={handleUpdateOrderStatus}
+        onUpdateOrder={handleUpdateOrder}
         onEditOrder={(ord) => {
           setSelectedOrderToEdit(ord);
           setIsOrderFormOpen(true);

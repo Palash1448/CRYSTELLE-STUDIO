@@ -1,5 +1,82 @@
-import {createFileRoute} from '@tanstack/react-router';
-import {ambience,pageHead} from '@/lib/store-data';
-import {Benefits} from '@/components/storefront';
-export const Route=createFileRoute('/about')({head:()=>pageHead('About Us','Meet Crystelle Studio, a collection of lovingly hand-poured candles celebrating the beauty of small moments.'),component:About});
-function About(){return <main><div className="container page"><section className="about-intro"><div className="eyebrow">The heart behind the glow</div><h1>About Us</h1><p>We believe in the power of small moments.<br/>Our handcrafted candles are made with love to bring warmth,<br/>calmness and beauty to your everyday life.</p></section><div className="stats"><div><strong>100%</strong><p>Handcrafted</p></div><div><strong>10K+</strong><p>Happy Customers</p></div><div><strong>50+</strong><p>Unique Fragrances</p></div></div><img className="about-image" src={ambience} alt="Handcrafted Crystelle Studio candles create a warm and peaceful moment" width={1024} height={512}/><section className="about-intro"><h2 className="text-4xl">Thoughtfully made, beautifully simple.</h2><p>From the first pour to the final glow, we take care in every detail. Natural ingredients, carefully chosen fragrances, and reusable vessels turn a simple candle into something worth slowing down for.</p></section></div><Benefits/></main>;}
+import { createFileRoute } from '@tanstack/react-router';
+import { ambience } from '@/lib/store-data';
+import { Benefits } from '@/components/storefront';
+import { seoHead, buildOrganizationSchema } from '@/lib/seo';
+
+export const Route = createFileRoute('/about')({
+  head: () =>
+    seoHead({
+      title: 'Our Story & Artisanal Philosophy — Handcrafted Candles',
+      description:
+        'Meet Crystelle Studio. Handcrafting botanical soy candles in Pulgaon, Wardha, Maharashtra. Made slowly with pure plant wax, clean aroma oils, and sustainable craftsmanship.',
+      path: '/about',
+      breadcrumbs: [{ name: 'About Us', path: '/about' }],
+      keywords:
+        'about Crystelle Studio, artisanal candle maker Maharashtra, handcrafted soy wax candles India, botanical candle studio Pulgaon, sustainable candle brand',
+      schemas: [
+        buildOrganizationSchema(),
+        {
+          '@context': 'https://schema.org',
+          '@type': 'AboutPage',
+          name: 'About Crystelle Studio',
+          description:
+            'The artisanal story and handcrafted philosophy of Crystelle Studio candle makers in Maharashtra, India.',
+        },
+      ],
+    }),
+  component: About,
+});
+
+function About() {
+  return (
+    <main>
+      <div className="container page">
+        <section className="about-intro">
+          <div className="eyebrow">The heart behind the glow</div>
+          <h1>About Crystelle Studio</h1>
+          <p>
+            We believe in the power of slow, mindful moments.
+            <br />
+            Every single candle is hand-poured with love and patience in our Maharashtra workshop,
+            <br />
+            bringing warmth, calmness, and natural beauty into your everyday spaces.
+          </p>
+        </section>
+
+        <div className="stats">
+          <div>
+            <strong>100%</strong>
+            <p>Hand-Poured Botanical Wax</p>
+          </div>
+          <div>
+            <strong>10K+</strong>
+            <p>Homes Illuminated</p>
+          </div>
+          <div>
+            <strong>50+</strong>
+            <p>Bespoke Scent Profiles</p>
+          </div>
+        </div>
+
+        <img
+          className="about-image"
+          src={ambience}
+          alt="Hand-poured Crystelle Studio botanical candles arranged on a rustic wooden tray"
+          width={1024}
+          height={512}
+        />
+
+        <section className="about-intro">
+          <h2 className="text-4xl">Thoughtfully made, beautifully simple.</h2>
+          <p>
+            From the initial wick centering to the curing and gentle hand labeling, we obsess over
+            every step of the candle-making craft. We use exclusively renewable plant waxes, IFRA-certified
+            fragrance oils, and reusable glass vessels designed to be cherished long after the final burn.
+          </p>
+        </section>
+      </div>
+
+      <Benefits />
+    </main>
+  );
+}

@@ -59,7 +59,7 @@ export function AdminOverview({
 
   const chartData = timeframe === '7d' ? revenueChartData7D : revenueChartData30D;
 
-  const totalRevenue = orders.reduce((acc, curr) => acc + curr.totalAmount, 0) + 180000;
+  const totalRevenue = orders.reduce((acc, curr) => acc + (curr.totalAmount || (curr as any).total || 0), 0);
   const pendingOrders = orders.filter((o) => o.status === 'Processing' || o.status === 'Poured');
 
   const getStatusBadge = (status: StudioOrder['status']) => {
@@ -78,7 +78,7 @@ export function AdminOverview({
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Executive Welcome Hero Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#1E1C1A] via-[#1A1816] to-[#141311] border border-[#2B2724] p-6 md:p-8 shadow-2xl">
+      <div className="relative overflow-hidden rounded-2xl bg-linear-to-r from-[#1E1C1A] via-[#1A1816] to-[#141311] border border-[#2B2724] p-6 md:p-8 shadow-2xl">
         <div className="absolute top-0 right-0 w-96 h-96 bg-[#D4A359]/5 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -110,7 +110,7 @@ export function AdminOverview({
             <Button
               onClick={onOpenAddProduct}
               size="sm"
-              className="bg-gradient-to-r from-[#D4A359] to-[#C08A3E] hover:from-[#E0B26D] hover:to-[#CF9A4D] text-[#121110] font-semibold text-xs h-9 shadow-md shadow-[#D4A359]/20"
+              className="bg-linear-to-r from-[#D4A359] to-[#C08A3E] hover:from-[#E0B26D] hover:to-[#CF9A4D] text-[#121110] font-semibold text-xs h-9 shadow-md shadow-[#D4A359]/20"
             >
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Pour New Candle
             </Button>
@@ -151,7 +151,7 @@ export function AdminOverview({
           </div>
           <div className="mt-3">
             <span className="text-2xl font-semibold text-[#FAF7F2] font-mono tracking-tight">
-              {orders.length + 336} Orders
+              {orders.length} Order{orders.length === 1 ? '' : 's'}
             </span>
           </div>
           <div className="mt-2 flex items-center gap-2 text-xs">
@@ -412,45 +412,53 @@ export function AdminOverview({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#221F1C]">
-                {orders.slice(0, 5).map((order) => (
-                  <tr key={order.id} className="hover:bg-[#181614] transition-colors group">
-                    <td className="py-3 font-mono font-medium text-[#FAF7F2]">
-                      {order.orderNumber}
-                      <span className="block text-[10px] text-[#8C847B] font-sans">
-                        {order.createdAt}
-                      </span>
-                    </td>
-                    <td className="py-3">
-                      <span className="font-medium text-[#EDE8E1] block">{order.customerName}</span>
-                      <span className="text-[10px] text-[#8C847B]">{order.customerCity}</span>
-                    </td>
-                    <td className="py-3 text-[#ABA398]">
-                      {order.items.map((it) => it.name).join(', ')}
-                    </td>
-                    <td className="py-3 font-mono font-semibold text-[#D4A359]">
-                      {money(order.totalAmount)}
-                    </td>
-                    <td className="py-3">
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full border inline-block ${getStatusBadge(
-                          order.status
-                        )}`}
-                      >
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="py-3 text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => onSelectOrder(order)}
-                        className="h-7 px-2 text-[11px] text-[#C8C2BA] hover:text-[#FAF7F2] hover:bg-[#262320]"
-                      >
-                        <Eye className="w-3.5 h-3.5 mr-1" /> Inspect
-                      </Button>
+                {orders.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-xs text-[#8C847B]">
+                      No orders placed yet. Customer orders from the storefront will appear here.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  orders.slice(0, 5).map((order) => (
+                    <tr key={order.id} className="hover:bg-[#181614] transition-colors group">
+                      <td className="py-3 font-mono font-medium text-[#FAF7F2]">
+                        {order.orderNumber || order.id || 'Order'}
+                        <span className="block text-[10px] text-[#8C847B] font-sans">
+                          {order.createdAt || 'Recent'}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        <span className="font-medium text-[#EDE8E1] block">{order.customerName || 'Customer'}</span>
+                        <span className="text-[10px] text-[#8C847B]">{order.customerCity || 'India'}</span>
+                      </td>
+                      <td className="py-3 text-[#ABA398]">
+                        {(order.items || []).map((it) => it.name).join(', ') || 'Handcrafted Candle'}
+                      </td>
+                      <td className="py-3 font-mono font-semibold text-[#D4A359]">
+                        {money(order.totalAmount ?? (order as any).total ?? 0)}
+                      </td>
+                      <td className="py-3">
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full border inline-block ${getStatusBadge(
+                            order.status
+                          )}`}
+                        >
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="py-3 text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => onSelectOrder(order)}
+                          className="h-7 px-2 text-[11px] text-[#C8C2BA] hover:text-[#FAF7F2] hover:bg-[#262320]"
+                        >
+                          <Eye className="w-3.5 h-3.5 mr-1" /> Inspect
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -492,7 +500,7 @@ export function AdminOverview({
                     </div>
                     <div className="w-full bg-[#221F1C] h-1.5 rounded-full overflow-hidden">
                       <div
-                        className="bg-gradient-to-r from-amber-500 to-emerald-400 h-full rounded-full"
+                        className="bg-linear-to-r from-amber-500 to-emerald-400 h-full rounded-full"
                         style={{ width: `${batch.progress}%` }}
                       ></div>
                     </div>

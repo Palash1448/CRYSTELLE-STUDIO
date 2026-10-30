@@ -84,7 +84,7 @@ export function AdminLoginPage({ onLoginSuccess }: AdminLoginPageProps) {
   return (
     <div className="min-h-screen bg-[#F8F6F2] text-[#1C1917] flex flex-col justify-between relative overflow-hidden font-sans selection:bg-[#C59A44]/20 selection:text-[#9A7228]">
       {/* Background Lighting & Ambiance (Light Theme) */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-[#C59A44]/10 rounded-full blur-[140px] pointer-events-none"></div>
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-137.5 h-137.5 bg-[#C59A44]/10 rounded-full blur-[140px] pointer-events-none"></div>
 
       {/* Top Header */}
       <header className="relative z-10 px-4 sm:px-6 py-5 max-w-5xl mx-auto w-full flex items-center justify-between">
@@ -172,7 +172,7 @@ export function AdminLoginPage({ onLoginSuccess }: AdminLoginPageProps) {
           {/* Error Message */}
           {error && (
             <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 flex items-start gap-2.5 text-xs text-red-700 animate-in fade-in duration-200">
-              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-red-500" />
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
               <span>{error}</span>
             </div>
           )}

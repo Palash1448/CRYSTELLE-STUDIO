@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { pageHead } from '@/lib/store-data';
+import { seoHead } from '@/lib/seo';
 import {
   Truck,
   PackageCheck,
@@ -14,10 +15,14 @@ import {
 
 export const Route = createFileRoute('/shipping-policy')({
   head: () =>
-    pageHead(
-      'Shipping & Delivery Policy | Crystelle Studio',
-      'Official Shipping Policy for Crystelle Studio (Udyam: UDYAM-MH-34-0059212). Learn about our handcrafting timelines, packaging care, and nationwide delivery across India.'
-    ),
+    seoHead({
+      title: 'Shipping & Delivery Policy',
+      description:
+        'Official Shipping Policy for Crystelle Studio (Udyam: UDYAM-MH-34-0059212). Learn about our dispatch timelines, fragile glass packaging, and nationwide delivery across India.',
+      path: '/shipping-policy',
+      breadcrumbs: [{ name: 'Shipping Policy', path: '/shipping-policy' }],
+      keywords: 'crystelle studio shipping policy, candle delivery timelines India, fragile packaging shipping',
+    }),
   component: ShippingPolicyPage,
 });
 

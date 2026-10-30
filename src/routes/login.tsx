@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
 import { useState, useEffect } from 'react';
 import { useStore } from '@/components/storefront';
 import { pageHead, hero, ambience } from '@/lib/store-data';
+import { seoHead } from '@/lib/seo';
 import { authenticateWithFirebase } from '@/lib/firebase-router';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,10 +26,13 @@ import {
 
 export const Route = createFileRoute('/login')({
   head: () =>
-    pageHead(
-      'Sign In / Create Account',
-      'Sign in to your Crystelle Studio account to personalize fragrance preferences and manage candle orders.',
-    ),
+    seoHead({
+      title: 'Sign In / Create Account',
+      description:
+        'Sign in to your Crystelle Studio account to manage your profile and candle orders.',
+      noindex: true,
+      path: '/login',
+    }),
   component: LoginPage,
 });
 
@@ -83,10 +87,7 @@ function LoginPage() {
           notify('Admin authentication verified via Firebase.');
           navigate({ to: '/admin' });
         } else {
-          login(cleanEmail, result.user?.fullName || (isRegister ? fullName : undefined));
-          if (result.user?.address) {
-            updateProfile({ address: result.user.address });
-          }
+          login(cleanEmail, result.user?.fullName || (isRegister ? fullName : undefined), result.user);
           notify(`Welcome ${result.user?.fullName ? result.user.fullName.split(' ')[0] : 'to Crystelle Studio'}!`);
           navigate({ to: '/profile' });
         }
@@ -159,7 +160,7 @@ function LoginPage() {
                   calming, and deeply luxurious.&rdquo;
                 </p>
                 <div className="pro-author">
-                  <span className="pro-author-name">Kartiki B.</span>
+                  <span className="pro-author-name">Kartiki C.</span>
                   <span className="pro-author-badge">Verified Collector</span>
                 </div>
               </div>
@@ -243,7 +244,7 @@ function LoginPage() {
                       <Input
                         id="fullname"
                         type="text"
-                        placeholder="e.g. Kartiki Borgave"
+                        placeholder="e.g. Kartiki Chaudhari"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         required={isRegister}

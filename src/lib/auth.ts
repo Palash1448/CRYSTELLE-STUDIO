@@ -1,5 +1,3 @@
-import lavender from '@/assets/lavender.jpg';
-import vanilla from '@/assets/vanilla.jpg';
 
 export type OrderItem = {
   id: string;
@@ -17,6 +15,22 @@ export type Order = {
   total: number;
   items: OrderItem[];
   trackingNumber?: string;
+  courier?: string;
+  shippingLabelUrl?: string;
+  shipprimeOrderId?: number | string;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  subtotal?: number;
+  shippingFee?: number;
+  discountAmount?: number;
+  appliedDiscountCode?: string | null;
+  shippingAddress?: {
+    street: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
 };
 
 export type UserProfile = {
@@ -74,58 +88,15 @@ export function createDefaultUser(email: string, fullName?: string): UserProfile
     id: 'CS-' + Math.floor(10000 + Math.random() * 90000),
     email,
     fullName: name,
-    phone: '+91 98201 44520',
+    phone: '',
     address: {
-      street: 'Flat 402, Lotus Heights, Orchid Avenue',
-      city: 'Mumbai',
+      street: '',
+      city: '',
       state: 'Maharashtra',
-      postalCode: '400050',
+      postalCode: '',
       country: 'India',
     },
-    orders: [
-      {
-        id: 'ORD-98421',
-        date: 'Oct 10, 2026',
-        status: 'Delivered',
-        total: 1048,
-        trackingNumber: 'IND-CRYST-88419',
-        items: [
-          {
-            id: 'lavender-bliss',
-            name: 'Lavender Bliss Handcrafted Candle',
-            size: 200,
-            quantity: 1,
-            price: 499,
-            image: lavender,
-          },
-          {
-            id: 'vanilla-dream',
-            name: 'Vanilla Dream Scented Candle',
-            size: 200,
-            quantity: 1,
-            price: 499,
-            image: vanilla,
-          },
-        ],
-      },
-      {
-        id: 'ORD-97103',
-        date: 'Sep 24, 2026',
-        status: 'Delivered',
-        total: 699,
-        trackingNumber: 'IND-CRYST-74120',
-        items: [
-          {
-            id: 'candle-care-kit',
-            name: 'Candle Care Kit (Trimmer & Snuffer)',
-            size: 1,
-            quantity: 1,
-            price: 699,
-            image: vanilla,
-          },
-        ],
-      },
-    ],
-    joinedDate: 'Oct 2026',
+    orders: [],
+    joinedDate: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
   };
 }

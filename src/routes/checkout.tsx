@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { useState, useId, useEffect } from 'react';
 import { useStore } from '@/components/storefront';
-import { products, money, pageHead } from '@/lib/store-data';
+import { products, money, pageHead, getStoredProducts } from '@/lib/store-data';
+import { seoHead } from '@/lib/seo';
 import { lookupPincode } from '@/lib/pincode';
-import { saveCustomerOrderToFirestore } from '@/lib/firestore-service';
+import { saveCustomerOrderToFirestore, saveUserProfileToFirestore } from '@/lib/firestore-service';
 import type { Order, OrderItem } from '@/lib/auth';
 import { openRazorpayModal, loadRazorpayScript } from '@/lib/razorpay';
 import { Button } from '@/components/ui/button';
@@ -29,21 +30,26 @@ import {
   User,
   Clock,
   ExternalLink,
+  Download,
 } from 'lucide-react';
+import { downloadInvoice } from '@/lib/invoice';
 
 export const Route = createFileRoute('/checkout')({
   head: () =>
-    pageHead(
-      'Express Checkout | Crystelle Studio',
-      'Fast, secure, and encrypted checkout for your handcrafted candle order. Nationwide delivery from Pulgaon, Maharashtra.'
-    ),
+    seoHead({
+      title: 'Express Checkout',
+      description: 'Fast, secure, and encrypted checkout for your handcrafted candle order.',
+      noindex: true,
+      path: '/checkout',
+    }),
   component: CheckoutPage,
 });
 
 type PaymentMethod = 'online' | 'cod';
 
 function CheckoutPage() {
-  const { cart, user, addOrder, notify } = useStore();
+  const { cart, user, addOrder, notify, products: storeProducts } = useStore();
+  const allProducts = storeProducts && storeProducts.length > 0 ? storeProducts : getStoredProducts();
   const navigate = useNavigate();
 
   // Safely preload Razorpay script on client-side after hydration
@@ -51,7 +57,7 @@ function CheckoutPage() {
     loadRazorpayScript();
   }, []);
 
-  // If user has saved profile, pre-fill all fields for a 1-step checkout!
+  // Pre-fill fields from user profile
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState(user?.phone || '');
@@ -61,6 +67,21 @@ function CheckoutPage() {
   const [postalCode, setPostalCode] = useState(user?.address?.postalCode || '');
   const [saveAddress, setSaveAddress] = useState(true);
   const [isDetectingPin, setIsDetectingPin] = useState(false);
+
+  // Sync with user profile whenever it loads from Firestore
+  useEffect(() => {
+    if (user) {
+      if (user.fullName && !fullName) setFullName(user.fullName);
+      if (user.email && !email) setEmail(user.email);
+      if (user.phone && !phone) setPhone(user.phone);
+      if (user.address) {
+        if (user.address.street && !street) setStreet(user.address.street);
+        if (user.address.city && !city) setCity(user.address.city);
+        if (user.address.state) setState(user.address.state);
+        if (user.address.postalCode && !postalCode) setPostalCode(user.address.postalCode);
+      }
+    }
+  }, [user]);
 
   const handlePincodeChange = async (val: string) => {
     const clean = val.replace(/\D/g, '').slice(0, 6);
@@ -101,7 +122,7 @@ function CheckoutPage() {
 
   // Calculate pricing
   const subtotal = cart.reduce((total, item) => {
-    const p = products.find((prod) => prod.id === item.id);
+    const p = allProducts.find((prod) => prod.id === item.id);
     const sizeAdjustment = item.size === 100 ? -150 : item.size === 350 ? 200 : 0;
     return total + (p ? (p.price + sizeAdjustment) * item.quantity : 0);
   }, 0);
@@ -154,7 +175,7 @@ function CheckoutPage() {
       // Map cart to OrderItems
       const orderItems: OrderItem[] = cart
         .map((item) => {
-          const p = products.find((prod) => prod.id === item.id);
+          const p = allProducts.find((prod) => prod.id === item.id);
           if (!p) return null;
           const sizeAdjustment = item.size === 100 ? -150 : item.size === 350 ? 200 : 0;
           return {
@@ -180,6 +201,19 @@ function CheckoutPage() {
           total: finalTotal,
           items: orderItems,
           trackingNumber: trackingCode,
+          paymentMethod: 'Cash on Delivery (COD)',
+          paymentStatus: 'Pending (COD on Delivery)',
+          subtotal,
+          shippingFee: baseShipping,
+          discountAmount,
+          appliedDiscountCode: appliedDiscount?.code || null,
+          shippingAddress: {
+            street,
+            city,
+            state,
+            postalCode,
+            country: 'India',
+          },
         };
 
         // Save order to Cloud Firestore collection 'orders'
@@ -203,6 +237,21 @@ function CheckoutPage() {
             country: 'India',
           },
         });
+
+        // Also persist user address and phone in Firestore
+        if (email) {
+          await saveUserProfileToFirestore(email, {
+            fullName,
+            phone,
+            address: {
+              street,
+              city,
+              state,
+              postalCode,
+              country: 'India',
+            },
+          }).catch((e) => console.warn('Could not save user profile during COD:', e));
+        }
 
         // Add to store session
         addOrder(newOrder, {
@@ -292,6 +341,19 @@ function CheckoutPage() {
               total: finalTotal,
               items: orderItems,
               trackingNumber: trackingCode,
+              paymentMethod: 'Prepaid (Razorpay UPI / Cards)',
+              paymentStatus: 'Paid & Verified',
+              subtotal,
+              shippingFee: baseShipping,
+              discountAmount,
+              appliedDiscountCode: appliedDiscount?.code || null,
+              shippingAddress: {
+                street,
+                city,
+                state,
+                postalCode,
+                country: 'India',
+              },
             };
 
             await saveCustomerOrderToFirestore({
@@ -317,6 +379,21 @@ function CheckoutPage() {
                 country: 'India',
               },
             });
+
+            // Also persist user address and phone in Firestore
+            if (email) {
+              await saveUserProfileToFirestore(email, {
+                fullName,
+                phone,
+                address: {
+                  street,
+                  city,
+                  state,
+                  postalCode,
+                  country: 'India',
+                },
+              }).catch((e) => console.warn('Could not save user profile during online checkout:', e));
+            }
 
             addOrder(newOrder, {
               fullName,
@@ -440,7 +517,22 @@ function CheckoutPage() {
 
             {/* Post-order Action Buttons */}
             <div className="order-success-actions">
-              <Button asChild className="checkout-primary-btn">
+              <Button
+                type="button"
+                onClick={() =>
+                  downloadInvoice(placedOrder, {
+                    fullName,
+                    email,
+                    phone,
+                    address: { street, city, state, postalCode, country: 'India' },
+                  })
+                }
+                className="checkout-primary-btn bg-[#C59A44] hover:bg-[#A67C2E] text-white cursor-pointer shadow-sm"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                <span>Download Tax Invoice</span>
+              </Button>
+              <Button asChild variant="outline">
                 <Link to="/profile">
                   <PackageCheck className="w-4 h-4 mr-2" />
                   <span>View Order in Profile</span>
@@ -786,7 +878,7 @@ function CheckoutPage() {
               {/* Items List */}
               <div className="summary-items-list">
                 {cart.map((item) => {
-                  const p = products.find((prod) => prod.id === item.id);
+                  const p = allProducts.find((prod) => prod.id === item.id);
                   if (!p) return null;
                   const sizeAdjustment = item.size === 100 ? -150 : item.size === 350 ? 200 : 0;
                   const itemPrice = (p.price + sizeAdjustment) * item.quantity;

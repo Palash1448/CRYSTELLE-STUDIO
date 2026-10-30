@@ -1,16 +1,28 @@
 import {createContext, useContext, useState, useEffect, type ReactNode} from 'react';
 import {Link, useNavigate} from '@tanstack/react-router';
-import {Flame, Search, UserRound, ShoppingCart, Menu, X, Heart, ArrowRight, Minus, Plus, BadgeCheck, Leaf, PackageCheck, House, LockKeyhole, Flower2, UserCheck} from 'lucide-react';
+import {Flame, Search, UserRound, ShoppingCart, Menu, X, Heart, ArrowRight, Minus, Plus, BadgeCheck, Leaf, PackageCheck, House, LockKeyhole, Flower2, UserCheck, Play} from 'lucide-react';
 import {Button} from '@/components/ui/button';
-import {products, type Product, money} from '@/lib/store-data';
+import {products, type Product, money, getStoredProducts} from '@/lib/store-data';
+import {CldImage} from '@/lib/cloudinary';
 import {type UserProfile, type Order, getStoredUser, saveStoredUser, createDefaultUser} from '@/lib/auth';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import {
+  fetchUserProfileFromFirestore,
+  saveUserProfileToFirestore,
+  saveCustomerOrderToFirestore,
+  fetchFirestoreProducts,
+} from '@/lib/firestore-service';
 
 export type CartItem = {id:string;size:number;quantity:number};
 type Store = {
   cart: CartItem[];
+  isCartOpen: boolean;
+  setIsCartOpen: (open: boolean) => void;
+  openCart: () => void;
+  closeCart: () => void;
   favorites: string[];
+  products: Product[];
   add: (id:string,size?:number,quantity?:number)=>void;
   change: (id:string,size:number,quantity:number)=>void;
   clearCart: () => void;
@@ -18,7 +30,7 @@ type Store = {
   notify: (text:string)=>void;
   notice: (text:string)=>void;
   user: UserProfile | null;
-  login: (email: string, fullName?: string) => UserProfile;
+  login: (email: string, fullName?: string, existingProfile?: UserProfile) => UserProfile;
   logout: () => void;
   updateProfile: (updates: Partial<UserProfile>) => void;
   addOrder: (order: Order, guestDetails?: Partial<UserProfile>) => void;
@@ -27,22 +39,49 @@ const StoreContext = createContext<Store|null>(null);
 export function useStore(){const store=useContext(StoreContext);if(!store)throw new Error('Store is unavailable');return store;}
 export function StoreProvider({children}:{children:ReactNode}){
  const [cart,setCart]=useState<CartItem[]>([]);
+ const [isCartOpen,setIsCartOpen]=useState(false);
  const [favorites,setFavorites]=useState<string[]>([]);
  const [toast,setToast]=useState('');
  const [noticeText,setNotice]=useState('');
  const [user,setUser]=useState<UserProfile|null>(null);
+ const [storeProducts, setStoreProducts] = useState<Product[]>(() => getStoredProducts());
+
+ const openCart = () => setIsCartOpen(true);
+ const closeCart = () => setIsCartOpen(false);
 
  useEffect(()=>{
    const stored = getStoredUser();
-   if (stored) setUser(stored);
+   if (stored) {
+     setUser(stored);
+     if (stored.email) {
+       fetchUserProfileFromFirestore(stored.email).then((remote) => {
+         if (remote) {
+           setUser(remote);
+           saveStoredUser(remote);
+         }
+       }).catch(() => {});
+     }
+   }
 
-   const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+   const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
      const userEmail = fbUser?.email;
      if (userEmail) {
+       try {
+         const remoteUser = await fetchUserProfileFromFirestore(userEmail);
+         if (remoteUser) {
+           setUser(remoteUser);
+           saveStoredUser(remoteUser);
+           return;
+         }
+       } catch (err) {
+         console.warn('Could not retrieve Firestore user:', err);
+       }
+
        setUser((curr) => {
          if (!curr || curr.email !== userEmail) {
            const nextUser = createDefaultUser(userEmail, fbUser.displayName || undefined);
            saveStoredUser(nextUser);
+           saveUserProfileToFirestore(userEmail, nextUser).catch(() => {});
            return nextUser;
          }
          return curr;
@@ -55,16 +94,24 @@ export function StoreProvider({children}:{children:ReactNode}){
 
  useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(''),2500);return()=>clearTimeout(timer);},[toast]);
 
- const add=(id:string,size=200,quantity=1)=>{setCart(current=>{const item=current.find(p=>p.id===id&&p.size===size);return item?current.map(p=>p===item?{...p,quantity:p.quantity+quantity}:p):[...current,{id,size,quantity}];});setToast('Added to your cart');};
+ const add=(id:string,size=200,quantity=1)=>{setCart(current=>{const item=current.find(p=>p.id===id&&p.size===size);return item?current.map(p=>p===item?{...p,quantity:p.quantity+quantity}:p):[...current,{id,size,quantity}];});setToast('Added to your cart');setIsCartOpen(true);};
  const change=(id:string,size:number,quantity:number)=>setCart(c=>quantity<1?c.filter(p=>p.id!==id||p.size!==size):c.map(p=>p.id===id&&p.size===size?{...p,quantity}:p));
 
  const clearCart = () => setCart([]);
 
- const login = (email: string, fullName?: string) => {
-   const loggedUser = createDefaultUser(email, fullName);
+ const login = (email: string, fullName?: string, existingProfile?: UserProfile) => {
+   const loggedUser = existingProfile || createDefaultUser(email, fullName);
    setUser(loggedUser);
    saveStoredUser(loggedUser);
    setToast(`Welcome back, ${loggedUser.fullName}!`);
+   if (!existingProfile) {
+     fetchUserProfileFromFirestore(email).then((remote) => {
+       if (remote) {
+         setUser(remote);
+         saveStoredUser(remote);
+       }
+     }).catch(() => {});
+   }
    return loggedUser;
  };
 
@@ -80,6 +127,11 @@ export function StoreProvider({children}:{children:ReactNode}){
      if (!current) return null;
      const updated = { ...current, ...updates, profileCompleted: true };
      saveStoredUser(updated);
+     if (updated.email) {
+       saveUserProfileToFirestore(updated.email, updated).catch((err) => {
+         console.warn('Failed to sync profile updates to Firestore:', err);
+       });
+     }
      return updated;
    });
    setToast('Profile preferences saved!');
@@ -91,19 +143,66 @@ export function StoreProvider({children}:{children:ReactNode}){
      if (!baseUser) {
        baseUser = createDefaultUser(guestDetails?.email || 'customer@crystellestudio.com', guestDetails?.fullName);
      }
+     const existingOrders = (baseUser.orders || []).filter(o => o.id !== order.id);
      const updated: UserProfile = {
        ...baseUser,
        ...(guestDetails || {}),
-       orders: [order, ...(baseUser.orders || [])],
+       orders: [order, ...existingOrders],
      };
      saveStoredUser(updated);
+
+     // Sync order and user profile to Cloud Firestore
+     saveCustomerOrderToFirestore({
+       ...order,
+       orderNumber: order.id,
+       customerEmail: updated.email,
+       customerName: updated.fullName,
+       customerPhone: updated.phone,
+       shippingAddress: order.shippingAddress,
+     }).catch((err) => {
+       console.warn('Failed to sync customer order to Firestore:', err);
+     });
+
+     saveUserProfileToFirestore(updated.email, updated).catch((err) => {
+       console.warn('Failed to sync updated user with order to Firestore:', err);
+     });
+
      return updated;
    });
    setCart([]);
  };
 
+ useEffect(() => {
+   fetchFirestoreProducts()
+     .then((remote) => {
+       if (remote && remote.length > 0) {
+         setStoreProducts(remote);
+         if (typeof window !== 'undefined') {
+           localStorage.setItem('crystelle_admin_products', JSON.stringify(remote));
+         }
+       }
+     })
+     .catch(() => {});
+
+   const handleUpdate = () => {
+     setStoreProducts(getStoredProducts());
+   };
+
+   window.addEventListener('storage', handleUpdate);
+   window.addEventListener('crystelle_products_updated', handleUpdate);
+   return () => {
+     window.removeEventListener('storage', handleUpdate);
+     window.removeEventListener('crystelle_products_updated', handleUpdate);
+   };
+ }, []);
+
  return <StoreContext.Provider value={{
    cart,
+   products: storeProducts,
+   isCartOpen,
+   setIsCartOpen,
+   openCart,
+   closeCart,
    favorites,
    add,
    change,
@@ -119,7 +218,7 @@ export function StoreProvider({children}:{children:ReactNode}){
  }}>{children}{toast&&<div role="status" className="toast">{toast}</div>}{noticeText&&<div className="modal-backdrop"><div className="notice-dialog" role="dialog" aria-modal="true" aria-labelledby="notice-title"><h2 id="notice-title">A little note</h2><p>{noticeText}</p><Button onClick={()=>setNotice('')}>Got it</Button></div></div>}</StoreContext.Provider>;
 }
 export function Brand(){return <Link to="/" className="brand" aria-label="Crystelle Studio home"><img src="/crystelle-gold-logo.png" alt="Crystelle Studio logo" className="brand-logo" width={44} height={44}/> <div className="brand-text"><strong>Crystelle</strong><span>Studio</span></div></Link>;}
-export function Header(){const {cart,user}=useStore();const [open,setOpen]=useState(false);const [searchOpen,setSearchOpen]=useState(false);const [search,setSearch]=useState('');const navigate=useNavigate();const count=cart.reduce((n,p)=>n+p.quantity,0);
+export function Header(){const {cart,user,openCart}=useStore();const [open,setOpen]=useState(false);const [searchOpen,setSearchOpen]=useState(false);const [search,setSearch]=useState('');const navigate=useNavigate();const count=cart.reduce((n,p)=>n+p.quantity,0);
  return <><header className="site-header"><Brand/><nav aria-label="Main navigation" className={'nav'+(open?' open':'')}>
  <Link to="/" activeOptions={{exact:true}} activeProps={{className:'active'}} onClick={()=>setOpen(false)}>Home</Link><Link to="/shop" activeProps={{className:'active'}} onClick={()=>setOpen(false)}>Shop</Link><Link to="/collections" activeProps={{className:'active'}} onClick={()=>setOpen(false)}>Collections</Link><Link to="/about" activeProps={{className:'active'}} onClick={()=>setOpen(false)}>About</Link><Link to="/blog" activeProps={{className:'active'}} onClick={()=>setOpen(false)}>Blog</Link><Link to="/contact" activeProps={{className:'active'}} onClick={()=>setOpen(false)}>Contact</Link>
  {user ? (
@@ -127,13 +226,13 @@ export function Header(){const {cart,user}=useStore();const [open,setOpen]=useSt
  ) : (
    <Link to="/login" className="mobile-only-link" onClick={()=>setOpen(false)}>Sign In / Profile</Link>
  )}
- </nav><div className="header-actions"><Button size="icon" variant="ghost" title="Search candles" aria-label="Search candles" onClick={()=>setSearchOpen(!searchOpen)}><Search/></Button><Button asChild size="icon" variant="ghost" className="account-button" title={user ? `My Profile (${user.fullName})` : "Sign In / Profile"} aria-label={user ? `My Profile (${user.fullName})` : "Sign In / Profile"}><Link to={user ? "/profile" : "/login"}>{user ? <span className="header-avatar-badge" title={user.fullName}>{user.fullName.charAt(0).toUpperCase()}</span> : <UserRound/>}</Link></Button><Button asChild variant="ghost" size="icon" className="cart-link" title="Your cart"><Link to="/cart" aria-label={`Your cart, ${count} items`}><ShoppingCart/><span className="cart-count">{count}</span></Link></Button><Button className="mobile-menu" variant="ghost" size="icon" aria-label="Open navigation" onClick={()=>setOpen(!open)}>{open?<X/>:<Menu/>}</Button></div></header>
+ </nav><div className="header-actions"><Button size="icon" variant="ghost" title="Search candles" aria-label="Search candles" onClick={()=>setSearchOpen(!searchOpen)}><Search/></Button><Button asChild size="icon" variant="ghost" className="account-button" title={user ? `My Profile (${user.fullName})` : "Sign In / Profile"} aria-label={user ? `My Profile (${user.fullName})` : "Sign In / Profile"}><Link to={user ? "/profile" : "/login"}>{user ? <span className="header-avatar-badge" title={user.fullName}>{user.fullName.charAt(0).toUpperCase()}</span> : <UserRound/>}</Link></Button><Button variant="ghost" size="icon" className="cart-link cursor-pointer" title="Your shopping bag" aria-label={`Your cart, ${count} items`} onClick={openCart}><ShoppingCart/><span className="cart-count">{count}</span></Button><Button className="mobile-menu" variant="ghost" size="icon" aria-label="Open navigation" onClick={()=>setOpen(!open)}>{open?<X/>:<Menu/>}</Button></div></header>
  {searchOpen&&<form className="search-panel" onSubmit={e=>{e.preventDefault();navigate({to:'/shop',search:{q:search}});setSearchOpen(false);}}><input aria-label="Search by name or fragrance" autoFocus placeholder="Find your favorite fragrance…" value={search} onChange={e=>setSearch(e.target.value)}/><Button type="submit"><Search/>Search</Button><Button variant="ghost" size="icon" aria-label="Close search" onClick={()=>setSearchOpen(false)}><X/></Button></form>}</>;
 }
 const benefitItems=[{icon:BadgeCheck,text:<>Handcrafted<br/>with Love</>},{icon:Leaf,text:<>Natural & Safe<br/>Ingredients</>},{icon:House,text:<>Aromas for<br/>Every Mood</>},{icon:PackageCheck,text:<>Eco-Friendly<br/>Packaging</>}];
 export function Benefits(){return <div className="benefits">{benefitItems.map(({icon:Icon,text},i)=><div className="benefit" key={i}><Icon/><span>{text}</span></div>)}</div>;}
 export function DetailBenefits(){return <div className="detail-benefits">{[{icon:Leaf,text:'Natural Ingredients'},{icon:Flower2,text:'Long Lasting Fragrance'},{icon:PackageCheck,text:'Hand Poured'},{icon:Flame,text:'Eco Friendly'}].map(({icon:Icon,text})=><div key={text}><Icon/>{text}</div>)}</div>;}
-export function ProductCard({product}:{product:Product}){const {add,favorites,favorite}=useStore();return <article className="product-card"><div className="product-photo"><Link to="/product/$slug" params={{slug:product.id}}><img src={product.image} alt={product.name+' candle'} width={512} height={512} loading="lazy"/></Link><Button className="favorite" size="icon" variant="ghost" aria-label={'Favorite '+product.name} aria-pressed={favorites.includes(product.id)} onClick={()=>favorite(product.id)}><Heart/></Button></div><div className="product-info"><Link to="/product/$slug" params={{slug:product.id}}><h3>{product.name}</h3></Link><p>{product.type}</p><span className="product-price">{money(product.price)}</span><div className="stars" aria-label="4.8 out of 5 stars">★★★★★</div><Button className="add-button" onClick={()=>add(product.id)}>Add to Cart</Button></div></article>;}
+export function ProductCard({product}:{product:Product}){const {add,favorites,favorite}=useStore();return <article className="product-card"><div className="product-photo"><Link to="/product/$slug" params={{slug:product.id}}><CldImage src={product.image} alt={`${product.name} — Handcrafted Scented Candle`} width={512} height={512} loading="lazy"/></Link>{product.video && (<span className="absolute bottom-2.5 left-2.5 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 backdrop-blur-xs pointer-events-none z-10"><Play className="w-2.5 h-2.5 fill-white" />Video</span>)}<Button className="favorite" size="icon" variant="ghost" aria-label={'Favorite '+product.name} aria-pressed={favorites.includes(product.id)} onClick={()=>favorite(product.id)}><Heart/></Button></div><div className="product-info"><Link to="/product/$slug" params={{slug:product.id}}><h3>{product.name}</h3></Link><p>{product.type}</p><span className="product-price">{money(product.price)}</span><div className="stars" aria-label="4.8 out of 5 stars">★★★★★</div><Button className="add-button" onClick={()=>add(product.id)}>Add to Cart</Button></div></article>;}
 export function Quantity({value,onChange}:{value:number;onChange:(n:number)=>void}){return <div className="quantity"><Button variant="ghost" size="icon" aria-label="Decrease quantity" disabled={value<=1} onClick={()=>onChange(value-1)}><Minus/></Button><span>{value}</span><Button variant="ghost" size="icon" aria-label="Increase quantity" disabled={value>=99} onClick={()=>onChange(value+1)}><Plus/></Button></div>;}
 export function Footer(){
   return (
@@ -170,7 +269,7 @@ export function Footer(){
               <li><Link to="/privacy-policy">Privacy Policy</Link></li>
               <li><Link to="/terms-and-conditions">Terms & Conditions</Link></li>
               <li><Link to="/profile">My Account & Orders</Link></li>
-              <li><Link to="/admin" className="text-amber-700/80 hover:text-amber-800 font-medium flex items-center gap-1.5"><span>Studio Admin</span> <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-700 border border-amber-500/25">Staff</span></Link></li>
+              <li><Link to="/admin" rel="nofollow" className="text-amber-700/80 hover:text-amber-800 font-medium flex items-center gap-1.5"><span>Studio Admin</span> <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-700 border border-amber-500/25">Staff</span></Link></li>
             </ul>
           </div>
 

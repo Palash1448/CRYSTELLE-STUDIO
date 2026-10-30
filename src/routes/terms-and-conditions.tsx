@@ -1,13 +1,18 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { pageHead } from '@/lib/store-data';
+import { seoHead } from '@/lib/seo';
 import { Scale, Building2, Flame, ShieldAlert, ArrowRight, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 export const Route = createFileRoute('/terms-and-conditions')({
   head: () =>
-    pageHead(
-      'Terms and Conditions | Crystelle Studio',
-      'Official Terms and Conditions for Crystelle Studio (Udyam: UDYAM-MH-34-0059212). Operating terms, handcrafted product disclosures, candle safety, and governing laws.'
-    ),
+    seoHead({
+      title: 'Terms and Conditions',
+      description:
+        'Official Terms and Conditions for Crystelle Studio (Udyam: UDYAM-MH-34-0059212). Operating terms, handcrafted product disclosures, candle safety, and governing laws.',
+      path: '/terms-and-conditions',
+      breadcrumbs: [{ name: 'Terms and Conditions', path: '/terms-and-conditions' }],
+      keywords: 'crystelle studio terms and conditions, handcrafted goods policy, candle safety guidelines',
+    }),
   component: TermsAndConditionsPage,
 });
 

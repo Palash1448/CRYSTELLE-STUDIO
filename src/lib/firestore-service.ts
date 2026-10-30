@@ -8,12 +8,14 @@ import {
   updateDoc,
   deleteDoc,
   query,
+  where,
   orderBy,
   limit,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { StudioOrder, StudioCustomer, StudioPromoCode } from './admin-data';
+import { type Order, type UserProfile } from './auth';
 
 // ==========================================
 // 1. USER FORMS (Contact, Profile, Checkout)
@@ -52,26 +54,17 @@ export async function submitContactInquiry(inquiry: ContactInquiry): Promise<str
  */
 export async function saveUserProfileToFirestore(
   email: string,
-  profileData: {
-    fullName: string;
-    email: string;
-    phone: string;
-    address: {
-      street: string;
-      city: string;
-      state: string;
-      postalCode: string;
-      country: string;
-    };
-  }
+  profileData: Partial<UserProfile>
 ): Promise<void> {
   if (!email) return;
+  const cleanEmail = email.toLowerCase().trim();
   try {
-    const userDocRef = doc(db, 'users', email.toLowerCase().trim());
+    const userDocRef = doc(db, 'users', cleanEmail);
     await setDoc(
       userDocRef,
       {
         ...profileData,
+        email: cleanEmail,
         lastUpdated: serverTimestamp(),
         updatedAtISO: new Date().toISOString(),
       },
@@ -83,21 +76,198 @@ export async function saveUserProfileToFirestore(
 }
 
 /**
+ * Loads a user's saved profile and all their orders from Cloud Firestore
+ */
+export async function fetchUserProfileFromFirestore(email: string): Promise<UserProfile | null> {
+  if (!email) return null;
+  const cleanEmail = email.toLowerCase().trim();
+
+  try {
+    const userDocRef = doc(db, 'users', cleanEmail);
+    const userSnap = await getDoc(userDocRef);
+
+    // Fetch all orders for this customer from the 'orders' collection
+    let remoteOrders: Order[] = [];
+    try {
+      const ordersCol = collection(db, 'orders');
+      const q = query(ordersCol, where('customerEmail', '==', cleanEmail));
+      const ordersSnap = await getDocs(q);
+      remoteOrders = ordersSnap.docs.map((docSnap) => {
+        const d = docSnap.data() as any;
+        return {
+          id: d.orderNumber || d.id || docSnap.id,
+          date: d.date || (d.placedAtISO ? d.placedAtISO.split('T')[0] : 'Recent'),
+          status: d.status || 'Processing',
+          total: Number(d.total || d.totalAmount || 0),
+          subtotal: Number(d.subtotal || 0),
+          shippingFee: Number(d.shippingFee || 0),
+          discountAmount: Number(d.discountAmount || 0),
+          appliedDiscountCode: d.appliedDiscountCode || null,
+          paymentMethod: d.paymentMethod || 'Prepaid',
+          paymentStatus: d.paymentStatus || 'Confirmed',
+          trackingNumber: d.trackingNumber || '',
+          courier: d.courier || undefined,
+          shippingLabelUrl: d.shippingLabelUrl || undefined,
+          shipprimeOrderId: d.shipprimeOrderId || undefined,
+          shippingAddress: d.shippingAddress || undefined,
+          items: (d.items || []).map((it: any) => ({
+            id: it.id || 'candle',
+            name: it.name || 'Handcrafted Candle',
+            size: Number(it.size || 200),
+            quantity: Number(it.quantity || 1),
+            price: Number(it.price || 0),
+            image: it.image || '/hero-candle.jpg',
+          })),
+        };
+      });
+    } catch (orderErr) {
+      console.warn('Firestore: Could not query orders by customerEmail:', orderErr);
+    }
+
+    if (userSnap.exists()) {
+      const data = userSnap.data() as any;
+      const docOrders: Order[] = data.orders || [];
+      const orderMap = new Map<string, Order>();
+      docOrders.forEach((o) => {
+        if (o && o.id) orderMap.set(o.id, o);
+      });
+      remoteOrders.forEach((o) => {
+        if (o && o.id) orderMap.set(o.id, o);
+      });
+      const mergedOrders = Array.from(orderMap.values());
+
+      return {
+        id: data.id || `CS-${Math.floor(10000 + Math.random() * 90000)}`,
+        email: cleanEmail,
+        fullName: data.fullName || (cleanEmail.split('@')[0] || 'Customer'),
+        phone: data.phone || '',
+        address: data.address || {
+          street: '',
+          city: '',
+          state: 'Maharashtra',
+          postalCode: '',
+          country: 'India',
+        },
+        orders: mergedOrders,
+        joinedDate: data.joinedDate || '2026',
+      };
+    } else if (remoteOrders.length > 0) {
+      const latestOrder = remoteOrders[0];
+      return {
+        id: `CS-${Math.floor(10000 + Math.random() * 90000)}`,
+        email: cleanEmail,
+        fullName: (cleanEmail.split('@')[0]) || 'Customer',
+        phone: '',
+        address: latestOrder?.shippingAddress || {
+          street: '',
+          city: '',
+          state: 'Maharashtra',
+          postalCode: '',
+          country: 'India',
+        },
+        orders: remoteOrders,
+        joinedDate: '2026',
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.warn('Firestore fetchUserProfileFromFirestore failed:', error);
+    return null;
+  }
+}
+
+/**
  * Saves a customer checkout order in Firestore collection 'orders'
+ * AND updates the user's order history in Firestore collection 'users'
  */
 export async function saveCustomerOrderToFirestore(orderData: any): Promise<void> {
   try {
     const orderId = orderData.orderNumber || orderData.id || `CS-ORD-${Date.now()}`;
+    const cleanEmail = (orderData.customerEmail || orderData.email || '').toLowerCase().trim();
+
+    // 1. Save to main 'orders' collection
     const orderDocRef = doc(db, 'orders', orderId);
-    await setDoc(
-      orderDocRef,
-      {
-        ...orderData,
-        createdAtServer: serverTimestamp(),
-        placedAtISO: new Date().toISOString(),
-      },
-      { merge: true }
-    );
+    const orderPayload = {
+      ...orderData,
+      id: orderId,
+      orderNumber: orderId,
+      customerEmail: cleanEmail,
+      total: Number(orderData.total ?? orderData.totalAmount ?? 0),
+      totalAmount: Number(orderData.totalAmount ?? orderData.total ?? 0),
+      createdAt: serverTimestamp(),
+      createdAtServer: serverTimestamp(),
+      placedAtISO: new Date().toISOString(),
+      createdAtISO: new Date().toISOString(),
+    };
+    await setDoc(orderDocRef, orderPayload, { merge: true });
+
+    // 2. Also persist under 'users/{cleanEmail}' so it syncs immediately to customer's profile
+    if (cleanEmail) {
+      try {
+        const userDocRef = doc(db, 'users', cleanEmail);
+        const userSnap = await getDoc(userDocRef);
+
+        const newOrderItem: Order = {
+          id: orderId,
+          date: orderData.date || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          status: orderData.status || 'Processing',
+          total: Number(orderData.total || orderData.totalAmount || 0),
+          subtotal: Number(orderData.subtotal || 0),
+          shippingFee: Number(orderData.shippingFee || 0),
+          discountAmount: Number(orderData.discountAmount || 0),
+          appliedDiscountCode: orderData.appliedDiscountCode || null,
+          paymentMethod: orderData.paymentMethod || 'Prepaid',
+          paymentStatus: orderData.paymentStatus || 'Confirmed',
+          trackingNumber: orderData.trackingNumber || '',
+          courier: orderData.courier || undefined,
+          shippingLabelUrl: orderData.shippingLabelUrl || undefined,
+          shipprimeOrderId: orderData.shipprimeOrderId || undefined,
+          shippingAddress: orderData.shippingAddress || undefined,
+          items: orderData.items || [],
+        };
+
+        if (userSnap.exists()) {
+          const currentData = userSnap.data() as any;
+          const currentOrders: Order[] = currentData.orders || [];
+          const updatedOrders = [newOrderItem, ...currentOrders.filter((o) => o.id !== orderId)];
+          const existingAddress = currentData.address;
+          const shouldUpdateAddress = (!existingAddress || !existingAddress.street) && orderData.shippingAddress;
+
+          await setDoc(
+            userDocRef,
+            {
+              orders: updatedOrders,
+              lastOrderAt: serverTimestamp(),
+              ...(shouldUpdateAddress ? { address: orderData.shippingAddress } : {}),
+              ...(orderData.customerPhone ? { phone: orderData.customerPhone } : {}),
+            },
+            { merge: true }
+          );
+        } else {
+          await setDoc(
+            userDocRef,
+            {
+              email: cleanEmail,
+              fullName: orderData.customerName || cleanEmail.split('@')[0],
+              phone: orderData.customerPhone || '',
+              address: orderData.shippingAddress || {
+                street: '',
+                city: '',
+                state: 'Maharashtra',
+                postalCode: '',
+                country: 'India',
+              },
+              orders: [newOrderItem],
+              createdAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        }
+      } catch (userErr) {
+        console.warn('Firestore: Could not append order to user profile:', userErr);
+      }
+    }
   } catch (error) {
     console.warn('Firestore: Could not save checkout order remotely:', error);
   }
@@ -108,18 +278,71 @@ export async function saveCustomerOrderToFirestore(orderData: any): Promise<void
 // ==========================================
 
 /**
- * Load all orders from Firestore
+ * Load all orders from Firestore with guaranteed fallback
  */
 export async function fetchFirestoreOrders(): Promise<StudioOrder[]> {
   try {
     const colRef = collection(db, 'orders');
-    const q = query(colRef, orderBy('createdAt', 'desc'), limit(100));
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) return [];
-    return snapshot.docs.map((docSnap) => ({
-      id: docSnap.id,
-      ...(docSnap.data() as any),
-    }));
+    let rawDocs: any[] = [];
+
+    try {
+      const q = query(colRef, orderBy('createdAt', 'desc'), limit(100));
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        rawDocs = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+      }
+    } catch (indexErr) {
+      console.warn('Firestore orderBy index warning, using resilient fallback:', indexErr);
+    }
+
+    if (rawDocs.length === 0) {
+      const fallbackSnapshot = await getDocs(colRef);
+      if (!fallbackSnapshot.empty) {
+        rawDocs = fallbackSnapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+      }
+    }
+
+    const normalizedOrders: StudioOrder[] = rawDocs.map((d: any) => {
+      const totalAmount = Number(d.totalAmount ?? d.total ?? d.totalPaid ?? 0);
+      const rawCity = d.customerCity || (d.shippingAddress?.city ? `${d.shippingAddress.city}, ${d.shippingAddress.state || ''}`.trim() : 'India');
+      const rawItems = Array.isArray(d.items) ? d.items : [];
+      const items = rawItems.map((it: any) => ({
+        name: it.name || 'Handcrafted Candle',
+        fragrance: it.fragrance || it.scent || 'Botanical',
+        quantity: Number(it.quantity) || 1,
+        price: Number(it.price) || 0,
+        size: typeof it.size === 'number' ? `${it.size}g` : String(it.size || '200g'),
+      }));
+
+      const dateStr = d.placedAtISO ? d.placedAtISO.split('T')[0] : (typeof d.date === 'string' && d.date.includes('-') ? d.date : new Date().toISOString().split('T')[0]);
+
+      return {
+        ...d,
+        id: d.id || d.orderNumber || `ord-${Date.now()}`,
+        orderNumber: d.orderNumber || d.id || `#CS-${Date.now()}`,
+        customerName: d.customerName || d.fullName || 'Valued Customer',
+        customerEmail: d.customerEmail || d.email || '',
+        customerCity: rawCity,
+        items,
+        totalAmount,
+        paymentMethod: (d.paymentMethod?.toLowerCase().includes('cod') ? 'COD' : d.paymentMethod) || 'UPI',
+        paymentStatus: d.paymentStatus || 'Paid',
+        status: d.status || 'Processing',
+        createdAt: typeof d.createdAt === 'string' ? d.createdAt : (d.date || 'Recent'),
+        orderDate: d.orderDate || dateStr,
+        trackingNumber: d.trackingNumber || undefined,
+        courier: d.courier || undefined,
+        shippingLabelUrl: d.shippingLabelUrl || undefined,
+        shipprimeOrderId: d.shipprimeOrderId || undefined,
+        notes: d.notes || undefined,
+      };
+    });
+
+    return normalizedOrders.sort((a, b) => {
+      const tA = new Date(a.orderDate || a.createdAt || 0).getTime();
+      const tB = new Date(b.orderDate || b.createdAt || 0).getTime();
+      return tB - tA;
+    });
   } catch (error) {
     console.warn('Firestore: fetch orders fallback:', error);
     return [];
@@ -147,6 +370,34 @@ export async function deleteFirestoreOrder(orderId: string): Promise<void> {
     await deleteDoc(docRef);
   } catch (error) {
     console.warn('Firestore: deleteFirestoreOrder failed:', error);
+  }
+}
+
+/**
+ * Fetch all products from Firestore collection 'products' (excluding dummy products)
+ */
+export async function fetchFirestoreProducts(): Promise<any[]> {
+  try {
+    const colRef = collection(db, 'products');
+    const snapshot = await getDocs(colRef);
+    if (!snapshot.empty) {
+      const DUMMY_PRODUCT_IDS = new Set([
+        'lavender-bliss',
+        'vanilla-dream',
+        'rose-petal',
+        'citrus-fresh',
+        'sandalwood-serenity',
+        'candle-gift-set',
+        'candle-care-kit',
+      ]);
+      return snapshot.docs
+        .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+        .filter((p: any) => p && p.id && !DUMMY_PRODUCT_IDS.has(p.id));
+    }
+    return [];
+  } catch (error) {
+    console.warn('Firestore: fetchFirestoreProducts failed:', error);
+    return [];
   }
 }
 
@@ -221,3 +472,4 @@ export async function deleteFirestorePromo(promoId: string): Promise<void> {
     console.warn('Firestore: deleteFirestorePromo failed:', error);
   }
 }
+

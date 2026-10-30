@@ -265,7 +265,7 @@ export function AdminPromocodes({
                       {promo.minOrderAmount > 0 ? money(promo.minOrderAmount) : 'No Minimum'}
                     </td>
 
-                    <td className="py-3.5 px-4 min-w-[130px]">
+                    <td className="py-3.5 px-4 min-w-32.5">
                       <div className="space-y-1">
                         <div className="flex justify-between text-[10px] text-[#78716C]">
                           <span>{promo.usageCount} used</span>

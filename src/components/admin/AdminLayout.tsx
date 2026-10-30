@@ -95,7 +95,7 @@ export function AdminLayout({
         {/* Brand Header */}
         <div className="h-20 border-b border-[#EAE4DC] flex items-center justify-between px-5 bg-white">
           <Link to="/admin" className="flex items-center gap-3 overflow-hidden group">
-            <div className="w-10 h-10 rounded-full border border-[#D4A359]/40 overflow-hidden flex-shrink-0 bg-[#FAF7F2] flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-full border border-[#D4A359]/40 overflow-hidden shrink-0 bg-[#FAF7F2] flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
               <img
                 src="/crystelle-gold-logo.png"
                 alt="Crystelle Studio"
@@ -166,7 +166,7 @@ export function AdminLayout({
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <Icon
-                    className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                    className={`w-4 h-4 shrink-0 transition-colors ${
                       isActive ? 'text-[#C59A44]' : 'text-[#78716C] group-hover:text-[#1C1917]'
                     }`}
                   />

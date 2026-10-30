@@ -178,7 +178,7 @@ export function AdminOrders({
           {/* Specific Date Picker Input */}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 bg-[#FAF8F5] border border-[#EAE4DC] rounded-xl px-3 py-1.5 shadow-2xs h-10">
-              <Calendar className="w-4 h-4 text-[#A67C2E] flex-shrink-0" />
+              <Calendar className="w-4 h-4 text-[#A67C2E] shrink-0" />
               <div className="flex flex-col">
                 <span className="text-[9px] uppercase font-bold text-[#A8A29E] leading-none">
                   Specific Date
@@ -356,7 +356,7 @@ export function AdminOrders({
                       </span>
                     </td>
                     <td className="py-3.5 px-4 font-mono font-semibold text-[#1C1917]">
-                      {money(order.totalAmount)}
+                      {money(order.totalAmount ?? (order as any).total ?? 0)}
                     </td>
                     <td className="py-3.5 px-4">
                       <select
@@ -427,7 +427,7 @@ export function AdminOrders({
                   </span>
                 </div>
                 <span className="font-mono font-semibold text-sm text-[#A67C2E]">
-                  {money(order.totalAmount)}
+                  {money(order.totalAmount ?? (order as any).total ?? 0)}
                 </span>
               </div>
 
@@ -549,7 +549,7 @@ export function AdminOrders({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl border border-[#EAE4DC] p-5 max-w-sm w-full shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 flex-shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div>

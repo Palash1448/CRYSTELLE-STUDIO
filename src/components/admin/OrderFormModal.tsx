@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { StudioOrder } from '@/lib/admin-data';
-import { products, money } from '@/lib/store-data';
+import { products, money, getStoredProducts } from '@/lib/store-data';
 
 interface OrderFormModalProps {
   isOpen: boolean;
@@ -109,11 +109,12 @@ export function OrderFormModal({
   };
 
   const handleItemChange = (index: number, field: string, val: any) => {
+    const available = getStoredProducts();
     setItems(
       items.map((it, i) => {
         if (i !== index) return it;
         if (field === 'productSelect') {
-          const selected = products.find((p) => p.name === val);
+          const selected = available.find((p) => p.name === val);
           if (selected) {
             return {
               ...it,
@@ -323,11 +324,17 @@ export function OrderFormModal({
                       onChange={(e) => handleItemChange(idx, 'productSelect', e.target.value)}
                       className="w-full h-9 rounded-xl bg-white border border-[#EAE4DC] px-2.5 text-xs text-[#1C1917] focus:outline-none"
                     >
-                      {products.map((p) => (
-                        <option key={p.id} value={p.name}>
-                          {p.name} ({p.fragrance} - ₹{p.price})
+                      {getStoredProducts().length > 0 ? (
+                        getStoredProducts().map((p) => (
+                          <option key={p.id} value={p.name}>
+                            {p.name} ({p.fragrance} - ₹{p.price})
+                          </option>
+                        ))
+                      ) : (
+                        <option value={it.name || 'Handcrafted Candle'}>
+                          {it.name || 'Handcrafted Candle'}
                         </option>
-                      ))}
+                      )}
                     </select>
                   </div>
 

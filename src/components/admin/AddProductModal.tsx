@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Check, Edit2, Image as ImageIcon } from 'lucide-react';
+import { X, Sparkles, Check, Edit2, Image as ImageIcon, Film, Cloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { money } from '@/lib/store-data';
+import { CloudinaryUploader } from './CloudinaryUploader';
+import { CldImage } from '@/lib/cloudinary';
 
 export interface ProductModalProps {
   isOpen: boolean;
@@ -33,6 +35,9 @@ export function AddProductModal({
   const [burnTime, setBurnTime] = useState('45-50 Hours');
   const [stockQuantity, setStockQuantity] = useState(30);
   const [image, setImage] = useState('/hero-candle.jpg');
+  const [video, setVideo] = useState('');
+  const [cloudinaryPublicId, setCloudinaryPublicId] = useState('');
+  const [cloudinaryVideoPublicId, setCloudinaryVideoPublicId] = useState('');
 
   useEffect(() => {
     if (productToEdit) {
@@ -46,6 +51,9 @@ export function AddProductModal({
       setBurnTime(productToEdit.burnTime || '45-50 Hours');
       setStockQuantity(productToEdit.stockQuantity ?? 30);
       setImage(productToEdit.image || '/hero-candle.jpg');
+      setVideo(productToEdit.video || '');
+      setCloudinaryPublicId(productToEdit.cloudinaryPublicId || '');
+      setCloudinaryVideoPublicId(productToEdit.cloudinaryVideoPublicId || '');
     } else {
       setName('');
       setFragrance('');
@@ -57,6 +65,9 @@ export function AddProductModal({
       setBurnTime('45-50 Hours');
       setStockQuantity(30);
       setImage('/hero-candle.jpg');
+      setVideo('');
+      setCloudinaryPublicId('');
+      setCloudinaryVideoPublicId('');
     }
   }, [productToEdit, isOpen]);
 
@@ -66,42 +77,37 @@ export function AddProductModal({
     e.preventDefault();
     if (!name.trim()) return;
 
+    const basePayload = {
+      name: name.trim(),
+      fragrance: fragrance.trim() || 'Botanical Blend',
+      category,
+      type: category.endsWith('s') ? category.slice(0, -1) : category,
+      price: Number(price) || 499,
+      description:
+        description.trim() ||
+        'Artisan hand-poured candle crafted with natural botanical extracts.',
+      notes: notes.trim() || 'Top notes of fresh florals with a soft warm amber base.',
+      stockQuantity: Number(stockQuantity) >= 0 ? Number(stockQuantity) : 25,
+      waxType: waxType.trim() || '100% Pure Soy Wax',
+      burnTime: burnTime.trim() || '45-50 Hours',
+      image: image.trim() || '/hero-candle.jpg',
+      video: video.trim() || undefined,
+      cloudinaryPublicId: cloudinaryPublicId.trim() || undefined,
+      cloudinaryVideoPublicId: cloudinaryVideoPublicId.trim() || undefined,
+    };
+
     if (isEditing && productToEdit && onUpdateProduct) {
       onUpdateProduct({
         ...productToEdit,
-        name: name.trim(),
-        fragrance: fragrance.trim() || 'Botanical Blend',
-        category,
-        type: category.endsWith('s') ? category.slice(0, -1) : category,
-        price: Number(price) || 499,
-        description:
-          description.trim() ||
-          'Artisan hand-poured candle crafted with natural botanical extracts.',
-        notes: notes.trim() || 'Top notes of fresh florals with a soft warm amber base.',
-        stockQuantity: Number(stockQuantity) >= 0 ? Number(stockQuantity) : 25,
-        waxType: waxType.trim() || '100% Pure Soy Wax',
-        burnTime: burnTime.trim() || '45-50 Hours',
-        image: image.trim() || productToEdit.image || '/hero-candle.jpg',
+        ...basePayload,
       });
     } else {
       const newProd = {
+        ...basePayload,
         id:
           name.toLowerCase().replace(/[^a-z0-9]+/g, '-') +
           '-' +
           Date.now().toString().slice(-4),
-        name: name.trim(),
-        fragrance: fragrance.trim() || 'Botanical Blend',
-        category,
-        type: category.endsWith('s') ? category.slice(0, -1) : category,
-        price: Number(price) || 499,
-        description:
-          description.trim() ||
-          'Artisan hand-poured candle crafted with natural botanical extracts.',
-        notes: notes.trim() || 'Top notes of fresh florals with a soft warm amber base.',
-        stockQuantity: Number(stockQuantity) >= 0 ? Number(stockQuantity) : 25,
-        waxType: waxType.trim() || '100% Pure Soy Wax',
-        burnTime: burnTime.trim() || '45-50 Hours',
-        image: image.trim() || '/hero-candle.jpg',
       };
       onAddProduct(newProd);
     }
@@ -123,15 +129,13 @@ export function AddProductModal({
                 {isEditing ? `Edit Candle: ${productToEdit.name}` : 'Add New Candle'}
               </h2>
               <p className="text-xs text-[#78716C]">
-                {isEditing
-                  ? 'Update fragrance profile, catalog pricing, and inventory stock'
-                  : 'Add an artisan product to the Crystelle Studio catalog'}
+                Photos & videos stored in <strong className="text-amber-800">Cloudinary</strong> • Product data saved in <strong className="text-amber-800">Firebase Firestore</strong>
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[#A8A29E] hover:text-[#1C1917] hover:bg-[#F0ECE6] transition-colors"
+            className="p-1.5 rounded-lg text-[#A8A29E] hover:text-[#1C1917] hover:bg-[#F0ECE6] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -139,6 +143,7 @@ export function AddProductModal({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
+          {/* Candle Details */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-[#44403C]">Candle Name *</Label>
@@ -202,7 +207,7 @@ export function AddProductModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-[#44403C]">Wax Composition</Label>
               <Input
@@ -220,16 +225,60 @@ export function AddProductModal({
                 className="bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
               />
             </div>
+          </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-[#44403C]">Image URL</Label>
-              <Input
-                placeholder="/hero-candle.jpg or URL"
-                value={image}
-                onChange={(e) => setImage(e.target.value)}
-                className="bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
-              />
+          {/* ======================================================= */}
+          {/* CLOUDINARY MEDIA UPLOADS (PHOTOS & VIDEOS)              */}
+          {/* ======================================================= */}
+          <div className="p-4 rounded-2xl border border-amber-200/90 bg-amber-50/20 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Cloud className="w-4 h-4 text-[#A67C2E]" />
+                <span className="text-xs font-semibold text-[#1C1917]">
+                  Cloudinary Media Storage
+                </span>
+                <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-300 font-mono">
+                  cloud: e6rnpzii
+                </span>
+              </div>
+              <span className="text-[10px] text-[#78716C]">
+                Stored on Cloudinary • String reference saved in Firebase
+              </span>
             </div>
+
+            {/* 1. Photo Uploader */}
+            <CloudinaryUploader
+              label="Primary Candle Photo (Auto-Crop & WebP Optimized)"
+              mediaType="image"
+              value={image}
+              publicId={cloudinaryPublicId}
+              onChange={(url, pid) => {
+                setImage(url);
+                setCloudinaryPublicId(pid || '');
+              }}
+              onRemove={() => {
+                setImage('/hero-candle.jpg');
+                setCloudinaryPublicId('');
+              }}
+              helperText="Hosted on Cloudinary CDN with automatic responsive delivery."
+            />
+
+            {/* 2. Video Uploader */}
+            <CloudinaryUploader
+              label="Candle Video Showcase (Optional - MP4/WebM)"
+              mediaType="video"
+              value={video}
+              publicId={cloudinaryVideoPublicId}
+              onChange={(url, pid) => {
+                setVideo(url);
+                setCloudinaryVideoPublicId(pid || '');
+              }}
+              onRemove={() => {
+                setVideo('');
+                setCloudinaryVideoPublicId('');
+              }}
+              helperText="Video streams directly from Cloudinary on product detail pages."
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -259,15 +308,25 @@ export function AddProductModal({
               Live Catalog Preview
             </span>
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl overflow-hidden border border-[#EAE4DC] bg-white flex-shrink-0">
-                <img
-                  src={image}
-                  alt={name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = '/hero-candle.jpg';
-                  }}
-                />
+              <div className="w-12 h-12 rounded-xl overflow-hidden border border-[#EAE4DC] bg-white shrink-0 relative">
+                {video ? (
+                  <video
+                    src={video}
+                    className="w-full h-full object-cover"
+                    muted
+                    loop
+                    autoPlay
+                    playsInline
+                  />
+                ) : (
+                  <CldImage
+                    src={image}
+                    alt={name}
+                    width={48}
+                    height={48}
+                    className="w-full h-full object-cover"
+                  />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-[#1C1917] truncate">
@@ -275,6 +334,7 @@ export function AddProductModal({
                 </p>
                 <p className="text-xs text-[#78716C] truncate">
                   {fragrance || 'Fragrance Family'} • {category} • {stockQuantity} in stock
+                  {video && ' • Includes Video'}
                 </p>
               </div>
               <span className="text-sm font-semibold text-[#1C1917] font-mono">

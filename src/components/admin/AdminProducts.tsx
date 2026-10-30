@@ -10,10 +10,13 @@ import {
   AlertTriangle,
   Eye,
   X,
+  Play,
+  Film,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { money } from '@/lib/store-data';
+import { CldImage } from '@/lib/cloudinary';
 
 interface AdminProductsProps {
   productsList: any[];
@@ -134,18 +137,29 @@ export function AdminProducts({
                   <tr key={prod.id} className="hover:bg-[#FAF8F5]/80 transition-colors">
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl overflow-hidden border border-[#EAE4DC] bg-[#FAF8F5] flex-shrink-0 shadow-2xs">
-                          <img
+                        <div className="w-10 h-10 rounded-xl overflow-hidden border border-[#EAE4DC] bg-[#FAF8F5] shrink-0 shadow-2xs relative">
+                          <CldImage
                             src={prod.image}
                             alt={prod.name}
+                            width={40}
+                            height={40}
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src = '/hero-candle.jpg';
-                            }}
                           />
+                          {prod.video && (
+                            <span className="absolute bottom-0 right-0 bg-black/70 text-white p-0.5 rounded-tl">
+                              <Play className="w-2 h-2 fill-white" />
+                            </span>
+                          )}
                         </div>
                         <div>
-                          <p className="font-semibold text-[#1C1917]">{prod.name}</p>
+                          <p className="font-semibold text-[#1C1917] flex items-center gap-1.5">
+                            {prod.name}
+                            {prod.video && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                Video
+                              </span>
+                            )}
+                          </p>
                           <p className="text-[10px] text-[#78716C]">{prod.type}</p>
                         </div>
                       </div>
@@ -211,6 +225,21 @@ export function AdminProducts({
                   </tr>
                 );
               })}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-[#78716C]">
+                    <div className="max-w-xs mx-auto space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-[#FAF8F5] border border-[#EAE4DC] flex items-center justify-center mx-auto text-xl">
+                        🕯️
+                      </div>
+                      <p className="font-semibold text-sm text-[#1C1917]">No Candles in Studio Inventory</p>
+                      <p className="text-xs text-[#78716C]">
+                        Your catalogue is clean. Click "+ Add New Candle" above to create your first handcrafted candle listing.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -218,7 +247,18 @@ export function AdminProducts({
 
       {/* Mobile Card View (Optimized for Phones) */}
       <div className="md:hidden space-y-3">
-        {filtered.map((prod) => {
+        {filtered.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-[#EAE4DC] p-8 text-center text-[#78716C] shadow-sm space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#FAF8F5] border border-[#EAE4DC] flex items-center justify-center mx-auto text-xl">
+              🕯️
+            </div>
+            <p className="font-semibold text-sm text-[#1C1917]">No Candles in Studio Inventory</p>
+            <p className="text-xs text-[#78716C]">
+              Click "+ Add New Candle" above to create your first real product listing.
+            </p>
+          </div>
+        ) : (
+          filtered.map((prod) => {
           const stock = prod.stockQuantity ?? 32;
           const isLow = stock <= 10;
           return (
@@ -227,15 +267,19 @@ export function AdminProducts({
               className="bg-white rounded-2xl border border-[#EAE4DC] p-4 shadow-sm space-y-3"
             >
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl overflow-hidden border border-[#EAE4DC] bg-[#FAF8F5] flex-shrink-0">
-                  <img
+                <div className="w-12 h-12 rounded-xl overflow-hidden border border-[#EAE4DC] bg-[#FAF8F5] shrink-0 relative">
+                  <CldImage
                     src={prod.image}
                     alt={prod.name}
+                    width={48}
+                    height={48}
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = '/hero-candle.jpg';
-                    }}
                   />
+                  {prod.video && (
+                    <span className="absolute bottom-0 right-0 bg-black/70 text-white p-0.5 rounded-tl">
+                      <Play className="w-2.5 h-2.5 fill-white" />
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm text-[#1C1917] truncate">{prod.name}</p>
@@ -295,7 +339,7 @@ export function AdminProducts({
               </div>
             </div>
           );
-        })}
+        }))}
       </div>
 
       {/* Confirmation Modal for Product Delete */}
@@ -303,7 +347,7 @@ export function AdminProducts({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl border border-[#EAE4DC] p-5 max-w-sm w-full shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 flex-shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div>

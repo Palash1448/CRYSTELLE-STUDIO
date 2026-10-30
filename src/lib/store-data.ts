@@ -8,16 +8,61 @@ import accessories from '@/assets/accessories.jpg';
 import ambience from '@/assets/ambience.jpg';
 import hero from '@/assets/hero-candle.jpg';
 export { hero, ambience, accessories, gift, jar };
-export const products = [
- {id:'lavender-bliss', name:'Lavender Bliss', category:'Scented Candles', type:'Scented Candle', fragrance:'Lavender', price:499, image:lavender, description:'A calming blend of lavender to relax your mind and create a peaceful ambiance.', notes:'Fresh lavender, soft sage, and a gentle touch of musk.'},
- {id:'vanilla-dream', name:'Vanilla Dream', category:'Scented Candles', type:'Scented Candle', fragrance:'Vanilla', price:499, image:vanilla, description:'Warm, comforting vanilla that makes every space feel a little more like home.', notes:'Madagascar vanilla, warm caramel, and soft sandalwood.'},
- {id:'rose-petal', name:'Rose Petal', category:'Jar Candles', type:'Jar Candle', fragrance:'Rose', price:549, image:rose, description:'The delicate fragrance of fresh roses, captured in a beautifully hand-poured candle.', notes:'Fresh rose petals, geranium, and a whisper of cedar.'},
- {id:'citrus-fresh', name:'Citrus Fresh', category:'Scented Candles', type:'Scented Candle', fragrance:'Citrus', price:499, image:citrus, description:'A bright burst of sun-ripened citrus to refresh your space and lift your spirits.', notes:'Sweet orange, lemon zest, and green bergamot.'},
- {id:'sandalwood-serenity', name:'Sandalwood Serenity', category:'Jar Candles', type:'Jar Candle', fragrance:'Sandalwood', price:699, image:jar, description:'Earthy sandalwood and warm woods for quiet evenings and moments of stillness.', notes:'Sandalwood, cedarwood, and warm amber.'},
- {id:'candle-gift-set', name:'The Crystelle Gift Set', category:'Candle Gift Sets', type:'Gift Set', fragrance:'Vanilla', price:899, image:gift, description:'A thoughtfully wrapped candle gift for the people who light up your life.', notes:'Our signature comforting vanilla fragrance.'},
- {id:'candle-care-kit', name:'Candle Care Kit', category:'Candle Accessories', type:'1 Set', fragrance:'Others', price:699, image:accessories, description:'The essentials for caring for your candles: a wick trimmer and elegant snuffer.', notes:'Fragrance-free candle accessories.'},
-];
-export type Product = (typeof products)[number];
+export interface Product {
+  id: string;
+  name: string;
+  category: string;
+  type: string;
+  fragrance: string;
+  price: number;
+  image: string;
+  video?: string;
+  mediaType?: 'image' | 'video';
+  gallery?: string[];
+  cloudinaryPublicId?: string;
+  cloudinaryVideoPublicId?: string;
+  description: string;
+  notes: string;
+  stockQuantity?: number;
+  waxType?: string;
+  burnTime?: string;
+}
+
+export const DUMMY_PRODUCT_IDS = new Set([
+  'lavender-bliss',
+  'vanilla-dream',
+  'rose-petal',
+  'citrus-fresh',
+  'sandalwood-serenity',
+  'candle-gift-set',
+  'candle-care-kit',
+]);
+
+// All dummy products removed - start with clean product list
+export const products: Product[] = [];
+
+export function getStoredProducts(): Product[] {
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = localStorage.getItem('crystelle_admin_products');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((p: any) => p && p.id && !DUMMY_PRODUCT_IDS.has(p.id));
+        }
+      }
+    } catch {}
+  }
+  return products;
+}
+
 export const categories = [{name:'Scented Candles',image:vanilla},{name:'Jar Candles',image:jar},{name:'Candle Gift Sets',image:gift},{name:'Candle Accessories',image:accessories}];
-export const money = (amount:number) => '₹'+amount.toLocaleString('en-IN');
-export function pageHead(title:string,description:string){return {meta:[{title:title+' — Crystelle Studio'},{name:'description',content:description},{property:'og:title',content:title+' — Crystelle Studio'},{property:'og:description',content:description},{property:'og:image',content:'/crystelle-gold-logo.png'},{property:'og:type',content:'website'},{name:'twitter:card',content:'summary_large_image'},{name:'twitter:image',content:'/crystelle-gold-logo.png'}]};}
+export const money = (amount?: number | string | null) => {
+  const num = typeof amount === 'number' ? amount : Number(amount);
+  return '₹' + (isNaN(num) ? 0 : num).toLocaleString('en-IN');
+};
+import { seoHead } from './seo';
+
+export function pageHead(title: string, description: string, path: string = '') {
+  return seoHead({ title, description, path });
+}

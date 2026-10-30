@@ -3,6 +3,8 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { handleWebRazorpayRequest } from "./server/razorpay";
+import { handleWebShipPrimeRequest } from "./server/shipprime";
+import { handleWebCloudinaryRequest } from "./server/cloudinary";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -51,6 +53,16 @@ export default {
       const razorpayResponse = await handleWebRazorpayRequest(request);
       if (razorpayResponse) {
         return razorpayResponse;
+      }
+
+      const shipprimeResponse = await handleWebShipPrimeRequest(request);
+      if (shipprimeResponse) {
+        return shipprimeResponse;
+      }
+
+      const cloudinaryResponse = await handleWebCloudinaryRequest(request);
+      if (cloudinaryResponse) {
+        return cloudinaryResponse;
       }
 
       const handler = await getServerEntry();

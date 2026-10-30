@@ -14,6 +14,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { StoreProvider, Header, Footer } from "@/components/storefront";
+import { CartDrawer } from "@/components/CartDrawer";
 import { trackFirebaseRoute } from "@/lib/firebase-router";
 
 function NotFoundComponent() {
@@ -80,7 +81,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
+      { name: "theme-color", content: "#FAF8F5" },
+      { name: "application-name", content: "Crystelle Studio" },
+      { name: "apple-mobile-web-app-title", content: "Crystelle Studio" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "google-site-verification", content: import.meta.env?.VITE_GOOGLE_SITE_VERIFICATION || "r-UpwBpAQWmp4lW6ERdKnw5cPyQB3M_jA6zeJBZyFjA" },
       { title: "Crystelle Studio — Handcrafted Candles & Fragrances" },
       { name: "description", content: "Handcrafted candles to create a warmer, brighter and calmer space." },
       { property: "og:type", content: "website" },
@@ -96,6 +101,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
+      { rel: "manifest", href: "/site.webmanifest" },
       { rel: "icon", href: "/pearl-crystelle-favicon.png", type: "image/png" },
       { rel: "shortcut icon", href: "/favicon.ico" },
       { rel: "apple-touch-icon", href: "/pearl-crystelle-favicon.png" },
@@ -136,6 +142,7 @@ function RootComponent() {
         {!isAdmin && <Header />}
         <Outlet />
         {!isAdmin && <Footer />}
+        {!isAdmin && <CartDrawer />}
       </StoreProvider>
     </QueryClientProvider>
   );

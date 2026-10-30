@@ -129,32 +129,24 @@ export async function authenticateWithFirebase(
       firebaseUser = cred.user;
     }
 
-    // Attempt to load existing user profile data from Firestore
-    let resolvedName = firebaseUser.displayName || fullName || cleanEmail.split('@')[0];
-    let addressData: any = undefined;
-
+    // Load full profile and all orders from Firestore
+    let appUser: UserProfile | null = null;
     try {
-      const userDocRef = doc(db, 'users', cleanEmail);
-      const userSnap = await getDoc(userDocRef);
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-        if (data && typeof data['fullName'] === 'string') resolvedName = data['fullName'];
-        if (data && data['address']) addressData = data['address'];
+      const { fetchUserProfileFromFirestore, saveUserProfileToFirestore } = await import('./firestore-service');
+      appUser = await fetchUserProfileFromFirestore(cleanEmail);
+
+      if (!appUser) {
+        const defaultUser = createDefaultUser(cleanEmail, fullName || firebaseUser.displayName || undefined);
+        appUser = defaultUser;
+        await saveUserProfileToFirestore(cleanEmail, defaultUser).catch(() => {});
+      } else if (fullName && (!appUser.fullName || appUser.fullName === cleanEmail.split('@')[0])) {
+        appUser.fullName = fullName;
+        await saveUserProfileToFirestore(cleanEmail, { fullName }).catch(() => {});
       }
     } catch (e) {
-      console.warn('Firestore fetch user notice:', e);
+      console.warn('Firestore fetch user notice in auth:', e);
+      appUser = createDefaultUser(cleanEmail, fullName || firebaseUser.displayName || undefined);
     }
-
-    const appUser: UserProfile = {
-      ...createDefaultUser(cleanEmail, resolvedName),
-      address: addressData || {
-        street: '',
-        city: '',
-        state: 'Maharashtra',
-        postalCode: '',
-        country: 'India',
-      },
-    };
 
     return {
       success: true,

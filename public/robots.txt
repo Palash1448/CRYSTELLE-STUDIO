@@ -1,8 +1,25 @@
+# Crystelle Studio — Robots Configuration for Search Engine Crawlers
+# https://crystellestudio.com
+
 User-agent: Googlebot
 Allow: /
+Disallow: /admin
+Disallow: /cart
+Disallow: /checkout
+Disallow: /profile
+Disallow: /login
+
+User-agent: Googlebot-Image
+Allow: /
+Allow: /assets/
 
 User-agent: Bingbot
 Allow: /
+Disallow: /admin
+Disallow: /cart
+Disallow: /checkout
+Disallow: /profile
+Disallow: /login
 
 User-agent: Twitterbot
 Allow: /
@@ -12,3 +29,11 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /cart
+Disallow: /checkout
+Disallow: /profile
+Disallow: /login
+
+# Sitemaps
+Sitemap: https://crystellestudio.com/sitemap.xml

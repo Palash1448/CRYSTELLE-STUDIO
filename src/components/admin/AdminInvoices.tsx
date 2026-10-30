@@ -65,9 +65,10 @@ export function AdminInvoices({ orders }: AdminInvoicesProps) {
   }
 
   // Financial calculations for GST Invoice
-  const totalAmount = currentOrder.totalAmount;
+  const totalAmount = Number(currentOrder.totalAmount ?? (currentOrder as any).total ?? 0);
+  const customerCity = currentOrder.customerCity || '';
   // Candles fall under HSN 34060010 @ 18% GST (9% CGST + 9% SGST for intra-state, 18% IGST for inter-state)
-  const isInterState = !currentOrder.customerCity.toLowerCase().includes('mh') && !currentOrder.customerCity.toLowerCase().includes('maharashtra');
+  const isInterState = !customerCity.toLowerCase().includes('mh') && !customerCity.toLowerCase().includes('maharashtra');
   const taxableAmount = Math.round((totalAmount / 1.18) * 100) / 100;
   const totalGst = Math.round((totalAmount - taxableAmount) * 100) / 100;
   const cgst = Math.round((totalGst / 2) * 100) / 100;
@@ -160,7 +161,7 @@ export function AdminInvoices({ orders }: AdminInvoicesProps) {
           </div>
 
           {/* Orders list */}
-          <div className="space-y-1.5 max-h-[500px] overflow-y-auto pr-1">
+          <div className="space-y-1.5 max-h-125 overflow-y-auto pr-1">
             {filteredOrders.map((ord) => {
               const isSelected = ord.id === currentOrder.id;
               return (
@@ -182,7 +183,7 @@ export function AdminInvoices({ orders }: AdminInvoicesProps) {
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-[11px] text-[#78716C]">
-                    <span className="font-medium text-[#1C1917] truncate max-w-[130px]">
+                    <span className="font-medium text-[#1C1917] truncate max-w-32.5">
                       {ord.customerName}
                     </span>
                     <span>{ord.createdAt}</span>
@@ -365,7 +366,7 @@ export function AdminInvoices({ orders }: AdminInvoicesProps) {
                 </div>
                 <div className="text-right">
                   <div className="font-display text-sm font-semibold text-[#1C1917] italic">
-                    Kartiki / Master Artisan
+                    Kartiki Chaudhari / Master Artisan
                   </div>
                   <span className="text-[10px] uppercase tracking-wider text-[#A8A29E]">
                     Authorized Signatory
@@ -422,7 +423,7 @@ export function AdminInvoices({ orders }: AdminInvoicesProps) {
 
               {/* Fragile Glass Caution */}
               <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 flex items-center gap-3 text-amber-900">
-                <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
                 <div className="text-[11px]">
                   <strong className="block font-semibold">CAUTION: HANDCRAFTED GLASS BOTANICAL CANDLE</strong>
                   <span>Handle with care. Do not expose parcel to direct heat or sunlight during transit.</span>

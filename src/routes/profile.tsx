@@ -2,8 +2,9 @@ import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
 import { useState, useEffect } from 'react';
 import { useStore } from '@/components/storefront';
 import { pageHead, money } from '@/lib/store-data';
+import { seoHead } from '@/lib/seo';
 import { lookupPincode } from '@/lib/pincode';
-import { saveUserProfileToFirestore } from '@/lib/firestore-service';
+import { saveUserProfileToFirestore, fetchUserProfileFromFirestore } from '@/lib/firestore-service';
 import { logoutFirebaseAuth } from '@/lib/firebase-router';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,17 +21,28 @@ import {
   ArrowRight,
   ShieldCheck,
   ShoppingBag,
+  Download,
 } from 'lucide-react';
+import { type Order } from '@/lib/auth';
+import { CustomerOrderDetailsModal } from '@/components/CustomerOrderDetailsModal';
+import { downloadInvoice } from '@/lib/invoice';
 
 export const Route = createFileRoute('/profile')({
   head: () =>
-    pageHead('My Account & Orders', 'Manage your name, phone number, address, and order details.'),
+    seoHead({
+      title: 'My Account & Orders',
+      description: 'Manage your name, phone number, address, and order details.',
+      noindex: true,
+      path: '/profile',
+    }),
   component: ProfilePage,
 });
 
 function ProfilePage() {
   const { user, updateProfile, logout, notify } = useStore();
   const navigate = useNavigate();
+
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   // If not logged in, redirect to login
   useEffect(() => {
@@ -45,9 +57,40 @@ function ProfilePage() {
   const [phone, setPhone] = useState(user?.phone || '');
   const [street, setStreet] = useState(user?.address?.street || '');
   const [city, setCity] = useState(user?.address?.city || '');
-  const [state, setState] = useState(user?.address?.state || '');
+  const [state, setState] = useState(user?.address?.state || 'Maharashtra');
   const [postalCode, setPostalCode] = useState(user?.address?.postalCode || '');
   const [country, setCountry] = useState(user?.address?.country || 'India');
+
+  // React to asynchronous user profile loading/refresh from Firestore
+  useEffect(() => {
+    if (user) {
+      if (user.fullName) setFullName(user.fullName);
+      if (user.email) setEmail(user.email);
+      if (user.phone) setPhone(user.phone);
+      if (user.address) {
+        if (user.address.street) setStreet(user.address.street);
+        if (user.address.city) setCity(user.address.city);
+        if (user.address.state) setState(user.address.state);
+        if (user.address.postalCode) setPostalCode(user.address.postalCode);
+        if (user.address.country) setCountry(user.address.country);
+      }
+    }
+  }, [user]);
+
+  // Fetch freshest profile & orders directly from Firestore on mount
+  useEffect(() => {
+    if (user?.email) {
+      fetchUserProfileFromFirestore(user.email)
+        .then((remote) => {
+          if (remote) {
+            updateProfile(remote);
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not refresh remote profile on profile page:', err);
+        });
+    }
+  }, [user?.email]);
 
   const [isDetectingPin, setIsDetectingPin] = useState(false);
   const [pinFeedback, setPinFeedback] = useState('');
@@ -347,10 +390,30 @@ function ProfilePage() {
               ) : (
                 <div className="min-orders-list">
                   {orders.map((order) => (
-                    <article key={order.id} className="min-order-item">
+                    <article
+                      key={order.id}
+                      className="min-order-item cursor-pointer hover:border-[#D4A359]/70 hover:shadow-md transition-all group relative"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSelectedOrder(order)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedOrder(order);
+                        }
+                      }}
+                      title="Click to view all order details & tracking"
+                    >
                       <div className="min-order-header">
                         <div className="min-order-id-wrap">
-                          <strong className="text-xs font-semibold">{order.id}</strong>
+                          <div className="flex items-center gap-2">
+                            <strong className="text-xs font-semibold text-[#1C1917] group-hover:text-[#A67C2E] transition-colors">
+                              {order.id}
+                            </strong>
+                            <span className="text-[10px] text-[#A67C2E] font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center">
+                              View details →
+                            </span>
+                          </div>
                           <span className="min-order-date">Placed on {order.date}</span>
                         </div>
                         <span
@@ -391,11 +454,28 @@ function ProfilePage() {
 
                       {/* Footer Summary */}
                       <div className="min-order-footer">
-                        {order.trackingNumber && (
-                          <span className="min-tracking-text">
-                            Tracking: <code>{order.trackingNumber}</code>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {order.trackingNumber && (
+                            <span className="min-tracking-text">
+                              Tracking: <code>{order.trackingNumber}</code>
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              downloadInvoice(order, user);
+                            }}
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-[#A67C2E] hover:text-[#8C6520] bg-[#FAF5EB] hover:bg-[#F5EFE6] border border-[#E3D7C5] px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                            title="Download Official Tax Invoice"
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>Invoice</span>
+                          </button>
+                          <span className="text-[11px] font-medium text-[#57534E] flex items-center gap-1 group-hover:text-[#1C1917] transition-colors">
+                            Details <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform text-[#A67C2E]" />
                           </span>
-                        )}
+                        </div>
                         <div className="min-order-total">
                           <span className="text-muted-foreground text-xs">Total:</span>
                           <strong className="text-sm font-semibold">{money(order.total)}</strong>
@@ -409,6 +489,16 @@ function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Interactive Order Details Modal */}
+      {selectedOrder && (
+        <CustomerOrderDetailsModal
+          order={selectedOrder}
+          user={user}
+          isOpen={Boolean(selectedOrder)}
+          onClose={() => setSelectedOrder(null)}
+        />
+      )}
     </main>
   );
 }

@@ -48,9 +48,9 @@ export function AdminWorkshop({ batches, onAddBatch }: AdminWorkshopProps) {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Ready For Customization Callout Banner */}
-      <div className="p-4 rounded-xl bg-gradient-to-r from-purple-500/10 via-[#1A1816] to-[#141311] border border-purple-500/30 flex items-start sm:items-center justify-between gap-4">
+      <div className="p-4 rounded-xl bg-linear-to-r from-purple-500/10 via-[#1A1816] to-[#141311] border border-purple-500/30 flex items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 flex-shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 shrink-0">
             <Flame className="w-5 h-5" />
           </div>
           <div>
@@ -70,7 +70,7 @@ export function AdminWorkshop({ batches, onAddBatch }: AdminWorkshopProps) {
 
         <Button
           onClick={() => setShowScheduleModal(true)}
-          className="bg-[#D4A359] hover:bg-[#E0B26D] text-[#121110] font-semibold text-xs h-9 px-4 flex-shrink-0"
+          className="bg-[#D4A359] hover:bg-[#E0B26D] text-[#121110] font-semibold text-xs h-9 px-4 shrink-0"
         >
           <Plus className="w-4 h-4 mr-1.5" /> Schedule Batch Pour
         </Button>
@@ -155,7 +155,7 @@ export function AdminWorkshop({ batches, onAddBatch }: AdminWorkshopProps) {
                 </div>
                 <div className="w-full bg-[#221F1C] h-2 rounded-full overflow-hidden border border-[#2B2724]">
                   <div
-                    className="bg-gradient-to-r from-amber-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                    className="bg-linear-to-r from-amber-500 to-emerald-400 h-full rounded-full transition-all duration-500"
                     style={{ width: `${batch.progress}%` }}
                   ></div>
                 </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Sparkles, Save, Store, ShieldCheck, CheckCircle2, Megaphone } from 'lucide-react';
+import { Settings, Sparkles, Save, Store, ShieldCheck, CheckCircle2, Megaphone, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,9 +19,9 @@ export function AdminSettings() {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Ready For Customization Callout Banner */}
-      <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/10 via-[#1A1816] to-[#141311] border border-amber-500/30 flex items-start sm:items-center justify-between gap-4">
+      <div className="p-4 rounded-xl bg-linear-to-r from-amber-500/10 via-[#1A1816] to-[#141311] border border-amber-500/30 flex items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 flex-shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
             <Settings className="w-5 h-5" />
           </div>
           <div>
@@ -185,6 +185,109 @@ export function AdminSettings() {
                 }
                 className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* ShipPrime Logistics & Courier Hub */}
+        <div className="p-6 rounded-xl bg-[#141311] border border-[#262320] space-y-4 shadow-xl">
+          <div className="flex items-center justify-between pb-3 border-b border-[#262320]">
+            <div className="flex items-center gap-2">
+              <Truck className="w-4 h-4 text-[#D4A359]" />
+              <div>
+                <h3 className="text-xs font-semibold text-[#EDE8E1]">ShipPrime Logistics & Courier Integration</h3>
+                <p className="text-[11px] text-[#8C847B]">
+                  Live Forward Order API (`https://api.shipprime.live/v1/forward`) for Delhivery, Xpressbees & Shadowfax
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-medium">
+              Live API Active
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-[#C8C2BA]">ShipPrime Authorization Bearer Token</Label>
+              <Input
+                type="password"
+                value={settings.shipprimeToken || ''}
+                onChange={(e) =>
+                  setSettings({ ...settings, shipprimeToken: e.target.value })
+                }
+                placeholder="Bearer sp_..."
+                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1] font-mono"
+              />
+              <span className="text-[10px] text-[#78716C] block">
+                Token is securely stored and used for generating forward AWBs and labels.
+              </span>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-[#C8C2BA]">Pickup Warehouse Pincode</Label>
+              <Input
+                value={settings.shipprimePickupPincode || ''}
+                onChange={(e) =>
+                  setSettings({ ...settings, shipprimePickupPincode: e.target.value })
+                }
+                placeholder="122002"
+                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1] font-mono"
+              />
+              <span className="text-[10px] text-[#78716C] block">
+                Pincode configured in your ShipPrime Seller Panel warehouse.
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-[#C8C2BA]">Warehouse Pickup Name</Label>
+              <Input
+                value={settings.shipprimePickupName || ''}
+                onChange={(e) =>
+                  setSettings({ ...settings, shipprimePickupName: e.target.value })
+                }
+                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-[#C8C2BA]">Warehouse Phone (10 digits)</Label>
+              <Input
+                value={settings.shipprimePickupPhone || ''}
+                onChange={(e) =>
+                  setSettings({ ...settings, shipprimePickupPhone: e.target.value })
+                }
+                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-[#C8C2BA]">Warehouse City & State</Label>
+              <Input
+                value={`${settings.shipprimePickupCity || 'Gurgaon'}, ${settings.shipprimePickupState || 'Haryana'}`}
+                onChange={(e) => {
+                  const parts = e.target.value.split(',');
+                  setSettings({
+                    ...settings,
+                    shipprimePickupCity: parts[0]?.trim() || '',
+                    shipprimePickupState: parts[1]?.trim() || '',
+                  });
+                }}
+                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
+              />
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-[#181614] border border-[#2B2724] flex items-center justify-between text-xs text-[#8C847B]">
+            <div className="flex items-center gap-2">
+              <span className="text-[#F3C77C] font-semibold">Candle HSN Code:</span>
+              <span className="font-mono text-[#EDE8E1]">34060010</span>
+              <span className="text-[11px]">(Decorative & Scented Candles)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[#F3C77C] font-semibold">Supported Couriers:</span>
+              <span className="text-[#EDE8E1]">Delhivery, Xpressbees, Shadowfax</span>
             </div>
           </div>
         </div>

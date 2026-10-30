@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { pageHead } from '@/lib/store-data';
+import { seoHead, buildOrganizationSchema } from '@/lib/seo';
 import { useStore } from '@/components/storefront';
 import { submitContactInquiry } from '@/lib/firestore-service';
 import { Button } from '@/components/ui/button';
@@ -25,10 +26,25 @@ import {
 
 export const Route = createFileRoute('/contact')({
   head: () =>
-    pageHead(
-      'Contact Us | Crystelle Studio (Pulgaon, Maharashtra)',
-      'Get in touch with Crystelle Studio (Udyam: UDYAM-MH-34-0059212). Official studio address in Pulgaon, Wardha, phone +91 7058398041, email, and inquiry form.'
-    ),
+    seoHead({
+      title: 'Contact Us — Handcrafted Candles Studio in Pulgaon, Maharashtra',
+      description:
+        'Get in touch with Crystelle Studio (Udyam: UDYAM-MH-34-0059212). Official studio workshop in Pulgaon, Wardha, phone +91 7058398041, email, and inquiry form for custom orders.',
+      path: '/contact',
+      breadcrumbs: [{ name: 'Contact Us', path: '/contact' }],
+      keywords:
+        'contact Crystelle Studio, candle workshop Pulgaon, candle manufacturer Wardha, buy candles Maharashtra, bulk custom candles India',
+      schemas: [
+        buildOrganizationSchema(),
+        {
+          '@context': 'https://schema.org',
+          '@type': 'ContactPage',
+          name: 'Contact Crystelle Studio',
+          description:
+            'Contact information and workshop address for Crystelle Studio handcrafted candles.',
+        },
+      ],
+    }),
   component: ContactPage,
 });
 

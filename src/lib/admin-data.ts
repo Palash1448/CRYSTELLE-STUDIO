@@ -20,6 +20,9 @@ export interface StudioOrder {
   createdAt: string;
   orderDate: string; // YYYY-MM-DD
   trackingNumber?: string | undefined;
+  courier?: string | undefined;
+  shippingLabelUrl?: string | undefined;
+  shipprimeOrderId?: number | string | undefined;
   notes?: string | undefined;
 }
 
@@ -70,266 +73,7 @@ export interface StudioNotification {
   unread: boolean;
 }
 
-export const initialOrders: StudioOrder[] = [
-  {
-    id: 'ord-101',
-    orderNumber: '#CS-98425',
-    customerName: 'Ananya Sharma',
-    customerEmail: 'ananya.s@gmail.com',
-    customerCity: 'Mumbai, MH',
-    items: [
-      { name: 'Lavender Bliss', fragrance: 'Lavender', quantity: 2, price: 499, size: '200g' },
-    ],
-    totalAmount: 998,
-    paymentMethod: 'UPI',
-    paymentStatus: 'Paid',
-    status: 'Processing',
-    createdAt: '14 minutes ago',
-    orderDate: '2026-10-19',
-    trackingNumber: 'IND-CRYST-98425',
-  },
-  {
-    id: 'ord-102',
-    orderNumber: '#CS-98424',
-    customerName: 'Rohan Mehta',
-    customerEmail: 'rohan.mehta@outlook.com',
-    customerCity: 'Bengaluru, KA',
-    items: [
-      { name: 'Sandalwood Serenity', fragrance: 'Sandalwood', quantity: 1, price: 699, size: '200g' },
-      { name: 'Candle Care Kit', fragrance: 'Others', quantity: 1, price: 699, size: '1 Set' },
-    ],
-    totalAmount: 1398,
-    paymentMethod: 'Card',
-    paymentStatus: 'Paid',
-    status: 'Poured',
-    createdAt: '42 minutes ago',
-    orderDate: '2026-10-19',
-    trackingNumber: 'IND-CRYST-98424',
-  },
-  {
-    id: 'ord-103',
-    orderNumber: '#CS-98423',
-    customerName: 'Priya Nair',
-    customerEmail: 'priya.nair@icloud.com',
-    customerCity: 'Pune, MH',
-    items: [
-      { name: 'The Crystelle Gift Set', fragrance: 'Vanilla', quantity: 1, price: 899, size: 'Gift Set' },
-    ],
-    totalAmount: 899,
-    paymentMethod: 'UPI',
-    paymentStatus: 'Paid',
-    status: 'Dispatched',
-    createdAt: '2 hours ago',
-    orderDate: '2026-10-19',
-    trackingNumber: 'BLUEDART-884219',
-  },
-  {
-    id: 'ord-104',
-    orderNumber: '#CS-98422',
-    customerName: 'Vikram Singhania',
-    customerEmail: 'v.singhania@corp.in',
-    customerCity: 'Hyderabad, TS',
-    items: [
-      { name: 'Vanilla Dream', fragrance: 'Vanilla', quantity: 3, price: 499, size: '200g' },
-    ],
-    totalAmount: 1497,
-    paymentMethod: 'NetBanking',
-    paymentStatus: 'Paid',
-    status: 'Delivered',
-    createdAt: 'Yesterday',
-    orderDate: '2026-10-18',
-    trackingNumber: 'DELHIVERY-774102',
-  },
-  {
-    id: 'ord-105',
-    orderNumber: '#CS-98421',
-    customerName: 'Tanya Kapoor',
-    customerEmail: 'tanya.k@yahoo.com',
-    customerCity: 'New Delhi, DL',
-    items: [
-      { name: 'Rose Petal', fragrance: 'Rose', quantity: 1, price: 549, size: '200g' },
-    ],
-    totalAmount: 549,
-    paymentMethod: 'COD',
-    paymentStatus: 'Pending',
-    status: 'Delivered',
-    createdAt: '2 days ago',
-    orderDate: '2026-10-17',
-    trackingNumber: 'DELHIVERY-662310',
-  },
-  {
-    id: 'ord-106',
-    orderNumber: '#CS-98420',
-    customerName: 'Aryan Deshmukh',
-    customerEmail: 'aryan.d@gmail.com',
-    customerCity: 'Nagpur, MH',
-    items: [
-      { name: 'Citrus Fresh', fragrance: 'Citrus', quantity: 2, price: 499, size: '200g' },
-    ],
-    totalAmount: 998,
-    paymentMethod: 'UPI',
-    paymentStatus: 'Paid',
-    status: 'Delivered',
-    createdAt: '3 days ago',
-    orderDate: '2026-10-16',
-    trackingNumber: 'IND-CRYST-98420',
-  },
-  {
-    id: 'ord-107',
-    orderNumber: '#CS-98419',
-    customerName: 'Meera Chawla',
-    customerEmail: 'meera.c@gmail.com',
-    customerCity: 'Jaipur, RJ',
-    items: [
-      { name: 'Rose Petal', fragrance: 'Rose', quantity: 2, price: 549, size: '200g' },
-      { name: 'Lavender Bliss', fragrance: 'Lavender', quantity: 1, price: 499, size: '200g' },
-    ],
-    totalAmount: 1597,
-    paymentMethod: 'Card',
-    paymentStatus: 'Paid',
-    status: 'Delivered',
-    createdAt: '4 days ago',
-    orderDate: '2026-10-15',
-    trackingNumber: 'BLUEDART-554109',
-  },
-  {
-    id: 'ord-108',
-    orderNumber: '#CS-98418',
-    customerName: 'Kabir Varma',
-    customerEmail: 'kabir.v@tech.io',
-    customerCity: 'Ahmedabad, GJ',
-    items: [
-      { name: 'Sandalwood Serenity', fragrance: 'Sandalwood', quantity: 1, price: 699, size: '200g' },
-    ],
-    totalAmount: 699,
-    paymentMethod: 'UPI',
-    paymentStatus: 'Paid',
-    status: 'Delivered',
-    createdAt: '5 days ago',
-    orderDate: '2026-10-14',
-    trackingNumber: 'DELHIVERY-339011',
-  },
-  {
-    id: 'ord-109',
-    orderNumber: '#CS-98417',
-    customerName: 'Shreya Patel',
-    customerEmail: 'shreya.p@gmail.com',
-    customerCity: 'Surat, GJ',
-    items: [
-      { name: 'Amber & Cashmere Glow', fragrance: 'Amber', quantity: 2, price: 499, size: '200g' },
-    ],
-    totalAmount: 998,
-    paymentMethod: 'UPI',
-    paymentStatus: 'Paid',
-    status: 'Delivered',
-    createdAt: '6 days ago',
-    orderDate: '2026-10-13',
-    trackingNumber: 'BLUEDART-441092',
-  },
-  {
-    id: 'ord-110',
-    orderNumber: '#CS-98416',
-    customerName: 'Aditya Kulkarni',
-    customerEmail: 'aditya.k@gmail.com',
-    customerCity: 'Thane, MH',
-    items: [
-      { name: 'Vanilla Dream', fragrance: 'Vanilla', quantity: 1, price: 499, size: '200g' },
-      { name: 'Rose Petal', fragrance: 'Rose', quantity: 1, price: 549, size: '200g' },
-    ],
-    totalAmount: 1048,
-    paymentMethod: 'Card',
-    paymentStatus: 'Paid',
-    status: 'Delivered',
-    createdAt: '7 days ago',
-    orderDate: '2026-10-12',
-    trackingNumber: 'DELHIVERY-219481',
-  },
-  {
-    id: 'ord-111',
-    orderNumber: '#CS-98415',
-    customerName: 'Kavita Menon',
-    customerEmail: 'kavita.m@gmail.com',
-    customerCity: 'Kochi, KL',
-    items: [
-      { name: 'Sandalwood Serenity', fragrance: 'Sandalwood', quantity: 2, price: 699, size: '200g' },
-    ],
-    totalAmount: 1398,
-    paymentMethod: 'UPI',
-    paymentStatus: 'Paid',
-    status: 'Delivered',
-    createdAt: '8 days ago',
-    orderDate: '2026-10-11',
-    trackingNumber: 'IND-CRYST-98415',
-  },
-  {
-    id: 'ord-112',
-    orderNumber: '#CS-98414',
-    customerName: 'Naveen Reddy',
-    customerEmail: 'naveen.r@gmail.com',
-    customerCity: 'Visakhapatnam, AP',
-    items: [
-      { name: 'Citrus Fresh', fragrance: 'Citrus', quantity: 1, price: 499, size: '200g' },
-    ],
-    totalAmount: 499,
-    paymentMethod: 'COD',
-    paymentStatus: 'Pending',
-    status: 'Delivered',
-    createdAt: '9 days ago',
-    orderDate: '2026-10-10',
-    trackingNumber: 'DELHIVERY-198421',
-  },
-  {
-    id: 'ord-113',
-    orderNumber: '#CS-98413',
-    customerName: 'Deepak Joshi',
-    customerEmail: 'deepak.j@gmail.com',
-    customerCity: 'Dehradun, UK',
-    items: [
-      { name: 'The Crystelle Gift Set', fragrance: 'Vanilla', quantity: 2, price: 899, size: 'Gift Set' },
-    ],
-    totalAmount: 1798,
-    paymentMethod: 'NetBanking',
-    paymentStatus: 'Paid',
-    status: 'Delivered',
-    createdAt: '10 days ago',
-    orderDate: '2026-10-09',
-    trackingNumber: 'BLUEDART-339182',
-  },
-  {
-    id: 'ord-114',
-    orderNumber: '#CS-98412',
-    customerName: 'Simran Walia',
-    customerEmail: 'simran.w@gmail.com',
-    customerCity: 'Chandigarh, CH',
-    items: [
-      { name: 'Lavender Bliss', fragrance: 'Lavender', quantity: 3, price: 499, size: '200g' },
-    ],
-    totalAmount: 1497,
-    paymentMethod: 'UPI',
-    paymentStatus: 'Paid',
-    status: 'Delivered',
-    createdAt: '11 days ago',
-    orderDate: '2026-10-08',
-    trackingNumber: 'IND-CRYST-98412',
-  },
-  {
-    id: 'ord-115',
-    orderNumber: '#CS-98411',
-    customerName: 'Gaurav Banerjee',
-    customerEmail: 'gaurav.b@gmail.com',
-    customerCity: 'Kolkata, WB',
-    items: [
-      { name: 'Rose Petal', fragrance: 'Rose', quantity: 1, price: 549, size: '200g' },
-    ],
-    totalAmount: 549,
-    paymentMethod: 'Card',
-    paymentStatus: 'Paid',
-    status: 'Delivered',
-    createdAt: '12 days ago',
-    orderDate: '2026-10-07',
-    trackingNumber: 'DELHIVERY-998231',
-  },
-];
+export const initialOrders: StudioOrder[] = [];
 
 export const initialBatches: WorkshopBatch[] = [
   {
@@ -562,6 +306,14 @@ export interface StoreSettings {
   standardShippingFee: number;
   taxRatePercent: number;
   gstRatePercent?: number;
+  shipprimeToken?: string;
+  shipprimePickupName?: string;
+  shipprimePickupPhone?: string;
+  shipprimePickupAddress1?: string;
+  shipprimePickupAddress2?: string;
+  shipprimePickupCity?: string;
+  shipprimePickupState?: string;
+  shipprimePickupPincode?: string;
 }
 
 export const initialStoreSettings: StoreSettings = {
@@ -576,4 +328,12 @@ export const initialStoreSettings: StoreSettings = {
   standardShippingFee: 99,
   taxRatePercent: 18,
   gstRatePercent: 18,
+  shipprimeToken: 'sp_f89f9d4c23f8a06733aaca480447b552b0ac26a483fb3472d6c2a867d11924b0',
+  shipprimePickupName: 'Crystelle Studio Warehouse',
+  shipprimePickupPhone: '9876543210',
+  shipprimePickupAddress1: 'Plot 45, Phase II',
+  shipprimePickupAddress2: 'Udyog Vihar',
+  shipprimePickupCity: 'Gurgaon',
+  shipprimePickupState: 'Haryana',
+  shipprimePickupPincode: '122002',
 };
