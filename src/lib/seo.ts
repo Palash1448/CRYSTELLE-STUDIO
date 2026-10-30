@@ -3,7 +3,7 @@ import { type Product } from './store-data';
 export const SITE_URL = (
   typeof process !== 'undefined' && process.env?.VITE_SITE_URL
     ? process.env.VITE_SITE_URL
-    : import.meta.env?.VITE_SITE_URL || 'https://crystellestudio.com'
+    : import.meta.env?.VITE_SITE_URL || 'https://crystellestudio.in'
 ).replace(/\/$/, '');
 
 export const SITE_NAME = 'Crystelle Studio';

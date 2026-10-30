@@ -1,5 +1,5 @@
 # Crystelle Studio — Robots Configuration for Search Engine Crawlers
-# https://crystellestudio.com
+# https://crystellestudio.in
 
 User-agent: Googlebot
 Allow: /
@@ -36,4 +36,4 @@ Disallow: /profile
 Disallow: /login
 
 # Sitemaps
-Sitemap: https://crystellestudio.com/sitemap.xml
+Sitemap: https://crystellestudio.in/sitemap.xml

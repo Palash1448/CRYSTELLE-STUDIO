@@ -5,6 +5,7 @@ import { renderErrorPage } from "./lib/error-page";
 import { handleWebRazorpayRequest } from "./server/razorpay";
 import { handleWebShipPrimeRequest } from "./server/shipprime";
 import { handleWebCloudinaryRequest } from "./server/cloudinary";
+import { generateSitemapXml, generateRobotsTxt } from "./server/sitemap";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -50,6 +51,57 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const url = new URL(request.url);
+      const pathname = url.pathname;
+
+      if (pathname === '/sitemap.xml' || pathname === '/sitemap') {
+        const host =
+          request.headers.get('x-forwarded-host') ||
+          request.headers.get('host') ||
+          url.host;
+        const proto =
+          request.headers.get('x-forwarded-proto') ||
+          (url.protocol ? url.protocol.replace(':', '') : 'https') ||
+          'https';
+        const siteUrl = (
+          (env as Record<string, string>)?.VITE_SITE_URL ||
+          (typeof process !== 'undefined' && process.env?.VITE_SITE_URL) ||
+          `${proto}://${host}`
+        ).replace(/\/$/, '');
+
+        return new Response(generateSitemapXml(siteUrl), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/xml; charset=utf-8',
+            'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+          },
+        });
+      }
+
+      if (pathname === '/robots.txt') {
+        const host =
+          request.headers.get('x-forwarded-host') ||
+          request.headers.get('host') ||
+          url.host;
+        const proto =
+          request.headers.get('x-forwarded-proto') ||
+          (url.protocol ? url.protocol.replace(':', '') : 'https') ||
+          'https';
+        const siteUrl = (
+          (env as Record<string, string>)?.VITE_SITE_URL ||
+          (typeof process !== 'undefined' && process.env?.VITE_SITE_URL) ||
+          `${proto}://${host}`
+        ).replace(/\/$/, '');
+
+        return new Response(generateRobotsTxt(siteUrl), {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+          },
+        });
+      }
+
       const razorpayResponse = await handleWebRazorpayRequest(request);
       if (razorpayResponse) {
         return razorpayResponse;
