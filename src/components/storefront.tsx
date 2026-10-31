@@ -388,7 +388,6 @@ export function Footer(){
               <li><Link to="/privacy-policy">Privacy Policy</Link></li>
               <li><Link to="/terms-and-conditions">Terms & Conditions</Link></li>
               <li><Link to="/profile">My Account & Orders</Link></li>
-              <li><Link to="/admin" rel="nofollow" className="text-amber-700/80 hover:text-amber-800 font-medium flex items-center gap-1.5"><span>Studio Admin</span> <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-700 border border-amber-500/25">Staff</span></Link></li>
             </ul>
           </div>
 
