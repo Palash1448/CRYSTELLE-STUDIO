@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Check, Edit2, Image as ImageIcon, Film, Cloud, Plus, Trash2 } from 'lucide-react';
+import { X, Sparkles, Check, Edit2, Image as ImageIcon, Film, Cloud, Plus, Trash2, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -250,12 +250,25 @@ export function AddProductModal({
               </span>
             </div>
 
-            {/* 1. Photo Uploader */}
+            {/* 1. Photo Uploader (Allows selecting 1 or multiple at once) */}
             <CloudinaryUploader
               label="Primary Candle Photo (Auto-Crop & WebP Optimized)"
               mediaType="image"
+              multiple={true}
               value={image}
               publicId={cloudinaryPublicId}
+              onMultipleChange={(urls) => {
+                if (urls.length === 0) return;
+                if (urls[0]) {
+                  setImage(urls[0]);
+                }
+                if (urls.length > 1) {
+                  setGallery((prev) => [
+                    ...prev,
+                    ...urls.slice(1).filter((u) => !prev.includes(u)),
+                  ]);
+                }
+              }}
               onChange={(url, pid) => {
                 setImage(url);
                 setCloudinaryPublicId(pid || '');
@@ -264,7 +277,7 @@ export function AddProductModal({
                 setImage('/hero-candle.jpg');
                 setCloudinaryPublicId('');
               }}
-              helperText="Hosted on Cloudinary CDN with automatic responsive delivery."
+              helperText="Tip: You can select multiple photos at once. The 1st photo becomes Main, the rest are added to the Gallery."
             />
 
             {/* 2. Additional Gallery Photos (Multi-Image Support) */}
@@ -293,14 +306,31 @@ export function AddProductModal({
                         alt={`Product gallery image ${idx + 1}`}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setGallery(gallery.filter((_, i) => i !== idx))}
-                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-600/90 hover:bg-red-700 text-white flex items-center justify-center transition-colors cursor-pointer shadow-xs"
-                        title="Remove image from gallery"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
+                      <div className="absolute top-1 right-1 flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const oldPrimary = image;
+                            setImage(imgUrl);
+                            setGallery((prev) => [
+                              ...(oldPrimary && oldPrimary !== '/hero-candle.jpg' ? [oldPrimary] : []),
+                              ...prev.filter((_, i) => i !== idx),
+                            ]);
+                          }}
+                          className="w-5 h-5 rounded-full bg-amber-500/90 hover:bg-amber-600 text-white flex items-center justify-center transition-colors cursor-pointer shadow-xs"
+                          title="Set as Main Cover Photo"
+                        >
+                          <Star className="w-2.5 h-2.5 fill-white" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setGallery(gallery.filter((_, i) => i !== idx))}
+                          className="w-5 h-5 rounded-full bg-red-600/90 hover:bg-red-700 text-white flex items-center justify-center transition-colors cursor-pointer shadow-xs"
+                          title="Remove image from gallery"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
                       <span className="absolute bottom-1 left-1 px-1.5 py-0.2 rounded bg-black/60 text-white font-mono text-[9px]">
                         #{idx + 1}
                       </span>
@@ -310,15 +340,27 @@ export function AddProductModal({
               )}
 
               <CloudinaryUploader
-                label="Add Another Image to Gallery"
+                label="Select Multiple Photos to Upload to Gallery (Hold Ctrl / Shift)"
                 mediaType="image"
+                multiple={true}
                 value=""
+                onMultipleChange={(urls) => {
+                  setGallery((prev) => {
+                    const combined = [...prev];
+                    urls.forEach((u) => {
+                      if (u && !combined.includes(u)) {
+                        combined.push(u);
+                      }
+                    });
+                    return combined;
+                  });
+                }}
                 onChange={(url) => {
                   if (url && !gallery.includes(url)) {
                     setGallery((prev) => [...prev, url]);
                   }
                 }}
-                helperText="Upload any lifestyle angle, close-up, or packaging box photo."
+                helperText="Hold Ctrl or Shift to select multiple photos at once from your device."
               />
             </div>
 

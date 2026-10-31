@@ -9,6 +9,7 @@ import {
   Loader2,
   ExternalLink,
   Sparkles,
+  Layers,
 } from 'lucide-react';
 import { uploadMediaToCloudinary, CldImage, extractPublicId } from '@/lib/cloudinary';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,8 @@ export interface CloudinaryUploaderProps {
   value: string;
   publicId?: string;
   onChange: (url: string, publicId?: string, meta?: any) => void;
+  onMultipleChange?: (urls: string[]) => void;
+  multiple?: boolean;
   onRemove?: () => void;
   folder?: string;
   helperText?: string;
@@ -30,72 +33,148 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
   value,
   publicId,
   onChange,
+  onMultipleChange,
+  multiple = false,
   onRemove,
   folder = 'crystelle_studio/products',
   helperText,
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatusText, setUploadStatusText] = useState('');
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [manualUrl, setManualUrl] = useState(value || '');
-  const lastDataUrlRef = useRef<string | null>(null);
+  const lastDataUrlsRef = useRef<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleFileSelect = async (file: File) => {
-    if (!file) return;
+  const handleFilesSelect = async (filesList: FileList | File[]) => {
+    const rawFiles = Array.from(filesList);
+    if (!rawFiles || rawFiles.length === 0) return;
 
-    // Validate type
-    if (mediaType === 'image' && !file.type.startsWith('image/')) {
-      setUploadError('Please select a valid image file (JPEG, PNG, WebP).');
-      return;
-    }
-    if (mediaType === 'video' && !file.type.startsWith('video/')) {
-      setUploadError('Please select a valid video file (MP4, WebM, MOV).');
+    // Filter valid files
+    const validFiles = rawFiles.filter((file) => {
+      if (mediaType === 'image') return file.type.startsWith('image/');
+      if (mediaType === 'video') return file.type.startsWith('video/');
+      return true;
+    });
+
+    if (validFiles.length === 0) {
+      setUploadError(
+        mediaType === 'video'
+          ? 'Please select valid video files (MP4, WebM, MOV).'
+          : 'Please select valid image files (JPEG, PNG, WebP).'
+      );
       return;
     }
 
     setUploadError(null);
     setIsUploading(true);
     setUploadProgress(0);
+    lastDataUrlsRef.current = [];
 
-    // Read local data URL first to guarantee immediate local fallback if network/Cloudinary fails
-    try {
-      const fileDataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      lastDataUrlRef.current = fileDataUrl;
-    } catch {
-      // ignore
+    // Pre-read all local data URLs for immediate local preview / fallback
+    const localDataUrls: string[] = [];
+    for (const f of validFiles) {
+      try {
+        const dUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(f);
+        });
+        localDataUrls.push(dUrl);
+      } catch {
+        // ignore
+      }
+    }
+    lastDataUrlsRef.current = localDataUrls;
+
+    // Single File Mode
+    if (!multiple || validFiles.length === 1) {
+      const singleFile = validFiles[0];
+      if (!singleFile) return;
+      setUploadStatusText('Uploading to Cloudinary...');
+
+      try {
+        const res = await uploadMediaToCloudinary(singleFile, {
+          folder,
+          resourceType: mediaType,
+          onProgress: (p) => setUploadProgress(p),
+        });
+
+        onChange(res.secure_url, res.public_id, res);
+        setManualUrl(res.secure_url);
+        if (onMultipleChange) {
+          onMultipleChange([res.secure_url]);
+        }
+        setUploadError(null);
+      } catch (err: any) {
+        console.warn('Cloudinary upload encountered error, applying local media fallback:', err);
+        const fallback = localDataUrls[0];
+        if (fallback) {
+          onChange(fallback, undefined);
+          setManualUrl(fallback);
+          if (onMultipleChange) {
+            onMultipleChange([fallback]);
+          }
+          setUploadError(null);
+        } else {
+          setUploadError(err.message || 'Failed to upload media');
+        }
+      } finally {
+        setIsUploading(false);
+        setUploadProgress(0);
+        setUploadStatusText('');
+      }
+      return;
     }
 
-    try {
-      const res = await uploadMediaToCloudinary(file, {
-        folder,
-        resourceType: mediaType,
-        onProgress: (p) => setUploadProgress(p),
-      });
+    // Multiple Files Batch Mode
+    const uploadedUrls: string[] = [];
 
-      onChange(res.secure_url, res.public_id, res);
-      setManualUrl(res.secure_url);
-      setUploadError(null);
-    } catch (err: any) {
-      console.warn('Cloudinary upload encountered error, applying local media fallback:', err);
-      if (lastDataUrlRef.current) {
-        onChange(lastDataUrlRef.current, undefined);
-        setManualUrl(lastDataUrlRef.current);
-        setUploadError(null);
-      } else {
-        setUploadError(err.message || 'Failed to upload media');
+    for (let i = 0; i < validFiles.length; i++) {
+      const file = validFiles[i];
+      if (!file) continue;
+      const fileNum = i + 1;
+      setUploadStatusText(`Uploading ${fileNum} of ${validFiles.length}: "${file.name}"...`);
+
+      try {
+        const res = await uploadMediaToCloudinary(file, {
+          folder,
+          resourceType: mediaType,
+          onProgress: (p) => {
+            const overall = Math.round(((i + p / 100) / validFiles.length) * 100);
+            setUploadProgress(overall);
+          },
+        });
+
+        if (res.secure_url) {
+          uploadedUrls.push(res.secure_url);
+        }
+      } catch (err) {
+        console.warn(`File ${file.name} Cloudinary failed, using local fallback`, err);
+        const fallback = localDataUrls[i];
+        if (fallback) {
+          uploadedUrls.push(fallback);
+        }
       }
-    } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
+    }
+
+    setIsUploading(false);
+    setUploadProgress(0);
+    setUploadStatusText('');
+
+    if (uploadedUrls.length > 0) {
+      if (onMultipleChange) {
+        onMultipleChange(uploadedUrls);
+      } else {
+        uploadedUrls.forEach((u) => onChange(u));
+      }
+    } else {
+      setUploadError('Failed to upload selected files. Please try again.');
     }
   };
 
@@ -111,8 +190,8 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileSelect(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFilesSelect(e.dataTransfer.files);
     }
   };
 
@@ -120,10 +199,13 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
     if (!manualUrl.trim()) return;
     const { publicId: extractedId } = extractPublicId(manualUrl.trim());
     onChange(manualUrl.trim(), extractedId);
+    if (onMultipleChange) {
+      onMultipleChange([manualUrl.trim()]);
+    }
     setShowUrlInput(false);
   };
 
-  const hasValue = Boolean(value && value.trim() && value !== '/hero-candle.jpg');
+  const hasValue = Boolean(!multiple && value && value.trim() && value !== '/hero-candle.jpg');
 
   return (
     <div className="space-y-2">
@@ -131,6 +213,8 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
         <label className="text-xs font-medium text-[#44403C] flex items-center gap-1.5">
           {mediaType === 'video' ? (
             <Film className="w-3.5 h-3.5 text-amber-700" />
+          ) : multiple ? (
+            <Layers className="w-3.5 h-3.5 text-amber-700" />
           ) : (
             <ImageIcon className="w-3.5 h-3.5 text-amber-700" />
           )}
@@ -168,7 +252,7 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
           </Button>
         </div>
       ) : hasValue ? (
-        /* Preview Card */
+        /* Preview Card for single-value mode */
         <div className="relative rounded-2xl border border-amber-200/80 bg-amber-50/30 p-3 flex items-center gap-3">
           <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-[#EAE4DC] shrink-0 relative flex items-center justify-center">
             {mediaType === 'video' ? (
@@ -227,7 +311,7 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
           </div>
         </div>
       ) : (
-        /* Upload Dropzone */
+        /* Upload Dropzone (Supports Multiple or Single) */
         <div
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
@@ -243,26 +327,30 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
             <div className="py-2 space-y-2">
               <Loader2 className="w-6 h-6 text-[#C59A44] animate-spin mx-auto" />
               <p className="text-xs font-medium text-[#1C1917]">
-                Uploading to Cloudinary... {uploadProgress}%
+                {uploadStatusText || `Uploading... ${uploadProgress}%`}
               </p>
-              <div className="w-48 max-w-full h-1.5 bg-[#EAE4DC] rounded-full mx-auto overflow-hidden">
+              <div className="w-56 max-w-full h-1.5 bg-[#EAE4DC] rounded-full mx-auto overflow-hidden">
                 <div
                   className="h-full bg-[#C59A44] transition-all duration-200"
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
-              <p className="text-[10px] text-[#78716C]">Optimizing media on Cloudinary cloud: e6rnpzii</p>
+              <p className="text-[10px] text-[#78716C]">Optimizing on Cloudinary cloud: e6rnpzii</p>
             </div>
           ) : (
             <div className="space-y-1">
               <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto mb-1.5">
-                <UploadCloud className="w-4 h-4" />
+                {multiple ? <Layers className="w-4 h-4" /> : <UploadCloud className="w-4 h-4" />}
               </div>
-              <p className="text-xs font-medium text-[#1C1917]">
-                Click or drag & drop to upload {mediaType === 'video' ? 'Candle Video' : 'Candle Photo'}
+              <p className="text-xs font-semibold text-[#1C1917]">
+                {multiple
+                  ? 'Click to select multiple photos at once (or drag & drop)'
+                  : `Click or drag & drop to upload ${mediaType === 'video' ? 'Candle Video' : 'Candle Photo'}`}
               </p>
               <p className="text-[10px] text-[#78716C]">
-                {mediaType === 'video'
+                {multiple
+                  ? 'Hold Ctrl or Shift to select multiple photos simultaneously • Auto-optimized'
+                  : mediaType === 'video'
                   ? 'MP4, WebM, MOV (Stored in Cloudinary, metadata in Firebase)'
                   : 'JPEG, PNG, WebP (Optimized via Cloudinary @auto format & quality)'}
               </p>
@@ -271,15 +359,17 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
         </div>
       )}
 
-      {/* Hidden File Input */}
+      {/* Hidden File Input with dynamic multiple attribute */}
       <input
         ref={fileInputRef}
         type="file"
+        multiple={multiple}
         accept={mediaType === 'video' ? 'video/*' : 'image/*'}
         className="hidden"
         onChange={(e) => {
-          if (e.target.files && e.target.files[0]) {
-            handleFileSelect(e.target.files[0]);
+          if (e.target.files && e.target.files.length > 0) {
+            handleFilesSelect(e.target.files);
+            e.target.value = '';
           }
         }}
       />
@@ -291,21 +381,23 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
             <span className="leading-relaxed">{uploadError}</span>
           </div>
           <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-red-200/60">
-            {lastDataUrlRef.current && (
+            {lastDataUrlsRef.current.length > 0 && (
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  if (lastDataUrlRef.current) {
-                    onChange(lastDataUrlRef.current, undefined);
-                    setManualUrl(lastDataUrlRef.current);
-                    setUploadError(null);
+                  if (onMultipleChange) {
+                    onMultipleChange(lastDataUrlsRef.current);
+                  } else if (lastDataUrlsRef.current[0]) {
+                    onChange(lastDataUrlsRef.current[0], undefined);
+                    setManualUrl(lastDataUrlsRef.current[0]);
                   }
+                  setUploadError(null);
                 }}
                 className="h-7 text-[10px] bg-white hover:bg-amber-50 text-amber-900 border-amber-300 font-medium"
               >
-                Use Selected Image Directly (Data URL)
+                Use Selected Photos Directly ({lastDataUrlsRef.current.length})
               </Button>
             )}
             <Button
