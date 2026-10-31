@@ -14,10 +14,27 @@ import {
 import { generateSitemapXml, generateRobotsTxt } from './sitemap';
 
 export function razorpayApiPlugin(): Plugin {
+  let middlewareHandler: any = null;
+
   return {
     name: 'razorpay-api-routes',
     configureServer(server) {
-      server.middlewares.use(async (req, res, next) => {
+      if (!middlewareHandler) {
+        middlewareHandler = createApiMiddleware();
+      }
+      server.middlewares.use(middlewareHandler);
+    },
+    configurePreviewServer(server) {
+      if (!middlewareHandler) {
+        middlewareHandler = createApiMiddleware();
+      }
+      server.middlewares.use(middlewareHandler);
+    },
+  };
+}
+
+function createApiMiddleware() {
+  return async (req: any, res: any, next: any) => {
         const fullUrl = req.url || '';
         const url = fullUrl.split('?')[0];
 
@@ -68,7 +85,7 @@ export function razorpayApiPlugin(): Plugin {
 
         if (url === '/api/create-order' && req.method === 'POST') {
           let bodyStr = '';
-          req.on('data', (chunk) => {
+          req.on('data', (chunk: any) => {
             bodyStr += chunk;
           });
           req.on('end', async () => {
@@ -89,7 +106,7 @@ export function razorpayApiPlugin(): Plugin {
 
         if (url === '/api/verify-payment' && req.method === 'POST') {
           let bodyStr = '';
-          req.on('data', (chunk) => {
+          req.on('data', (chunk: any) => {
             bodyStr += chunk;
           });
           req.on('end', async () => {
@@ -111,7 +128,7 @@ export function razorpayApiPlugin(): Plugin {
         // --- ShipPrime Logistics Endpoints ---
         if (url === '/api/shipprime/forward' && req.method === 'POST') {
           let bodyStr = '';
-          req.on('data', (chunk) => {
+          req.on('data', (chunk: any) => {
             bodyStr += chunk;
           });
           req.on('end', async () => {
@@ -132,7 +149,7 @@ export function razorpayApiPlugin(): Plugin {
 
         if (url === '/api/shipprime/cancel' && req.method === 'POST') {
           let bodyStr = '';
-          req.on('data', (chunk) => {
+          req.on('data', (chunk: any) => {
             bodyStr += chunk;
           });
           req.on('end', async () => {
@@ -186,7 +203,7 @@ export function razorpayApiPlugin(): Plugin {
             let folder = 'crystelle_studio/products';
             if (req.method === 'POST') {
               let bodyStr = '';
-              req.on('data', (chunk) => {
+              req.on('data', (chunk: any) => {
                 bodyStr += chunk;
               });
               req.on('end', () => {
@@ -226,7 +243,7 @@ export function razorpayApiPlugin(): Plugin {
 
         if (url === '/api/cloudinary/upload' && req.method === 'POST') {
           let bodyStr = '';
-          req.on('data', (chunk) => {
+          req.on('data', (chunk: any) => {
             bodyStr += chunk;
           });
           req.on('end', async () => {
@@ -246,7 +263,5 @@ export function razorpayApiPlugin(): Plugin {
         }
 
         next();
-      });
-    },
-  };
+      };
 }

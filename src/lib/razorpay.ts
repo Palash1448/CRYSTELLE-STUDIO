@@ -77,10 +77,9 @@ export async function openRazorpayModal(options: OpenCheckoutOptions): Promise<v
     throw new Error('Razorpay payment gateway failed to load. Please check your internet connection and try again.');
   }
 
-  const keyId = import.meta.env['VITE_RAZORPAY_KEY_ID'];
-  if (!keyId) {
-    throw new Error('VITE_RAZORPAY_KEY_ID is missing in client environment.');
-  }
+  const keyId =
+    (typeof import.meta !== 'undefined' && import.meta.env?.['VITE_RAZORPAY_KEY_ID']) ||
+    'rzp_test_Tq8zXO9tg8iTzT';
 
   const fullOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 

@@ -102,7 +102,7 @@ export default {
         });
       }
 
-      const razorpayResponse = await handleWebRazorpayRequest(request);
+      const razorpayResponse = await handleWebRazorpayRequest(request, env);
       if (razorpayResponse) {
         return razorpayResponse;
       }

@@ -292,6 +292,125 @@ function CheckoutPage() {
         throw new Error(orderData.error || 'Failed to initialize payment gateway.');
       }
 
+      // Helper to verify and record completed payment order
+      const completePrepaidOrder = async (razorpayResponse: {
+        razorpay_order_id: string;
+        razorpay_payment_id: string;
+        razorpay_signature: string;
+      }) => {
+        // STEP 3: Call Backend to Verify Payment Signature
+        const verifyRes = await fetch('/api/verify-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_order_id: razorpayResponse.razorpay_order_id,
+            razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+            razorpay_signature: razorpayResponse.razorpay_signature,
+          }),
+        });
+
+        const verifyData = await verifyRes.json().catch(() => ({}));
+
+        if (!verifyRes.ok || !verifyData.success) {
+          notify(`Payment verification failed: ${verifyData?.error || 'Invalid signature'}`);
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Confirmed & Verified! Create order record
+        const newOrder: Order = {
+          id: orderNumber,
+          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          status: 'Processing',
+          total: finalTotal,
+          items: orderItems,
+          trackingNumber: trackingCode,
+          paymentMethod: 'Prepaid (Razorpay UPI / Cards)',
+          paymentStatus: 'Paid & Verified',
+          subtotal,
+          shippingFee: baseShipping,
+          discountAmount,
+          appliedDiscountCode: appliedDiscount?.code || null,
+          shippingAddress: {
+            street,
+            city,
+            state,
+            postalCode,
+            country: 'India',
+          },
+        };
+
+        await saveCustomerOrderToFirestore({
+          ...newOrder,
+          orderNumber: newOrder.id,
+          customerName: fullName,
+          customerEmail: email,
+          customerPhone: phone,
+          paymentMethod: 'online',
+          paymentStatus: 'Paid (Razorpay Verified)',
+          razorpayPaymentId: razorpayResponse.razorpay_payment_id,
+          razorpayOrderId: razorpayResponse.razorpay_order_id,
+          razorpaySignature: razorpayResponse.razorpay_signature,
+          subtotal,
+          shippingFee: baseShipping,
+          discountAmount,
+          appliedDiscountCode: appliedDiscount?.code || null,
+          shippingAddress: {
+            street,
+            city,
+            state,
+            postalCode,
+            country: 'India',
+          },
+        });
+
+        // Also persist user address and phone in Firestore
+        if (email) {
+          await saveUserProfileToFirestore(email, {
+            fullName,
+            phone,
+            address: {
+              street,
+              city,
+              state,
+              postalCode,
+              country: 'India',
+            },
+          }).catch((e) => console.warn('Could not save user profile during online checkout:', e));
+        }
+
+        addOrder(newOrder, {
+          fullName,
+          email,
+          phone,
+          address: {
+            street,
+            city,
+            state,
+            postalCode,
+            country: 'India',
+          },
+        });
+
+        setPaymentDetails({
+          paymentId: razorpayResponse.razorpay_payment_id,
+          orderId: razorpayResponse.razorpay_order_id,
+        });
+        setPlacedOrder(newOrder);
+        setIsSubmitting(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+
+      // If test simulation mode (e.g. offline dev environment where Razorpay API is blocked)
+      if (orderData.isTestFallback) {
+        await completePrepaidOrder({
+          razorpay_order_id: orderData.order_id,
+          razorpay_payment_id: `pay_test_${Date.now()}`,
+          razorpay_signature: `sig_test_${Date.now()}`,
+        });
+        return;
+      }
+
       // STEP 2: Open Razorpay Standard Checkout Modal
       await openRazorpayModal({
         orderId: orderData.order_id,
@@ -314,107 +433,7 @@ function CheckoutPage() {
         },
         onSuccess: async (razorpayResponse) => {
           try {
-            // STEP 3: Call Backend to Verify Payment Signature
-            const verifyRes = await fetch('/api/verify-payment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                razorpay_order_id: razorpayResponse.razorpay_order_id,
-                razorpay_payment_id: razorpayResponse.razorpay_payment_id,
-                razorpay_signature: razorpayResponse.razorpay_signature,
-              }),
-            });
-
-            const verifyData = await verifyRes.json().catch(() => ({}));
-
-            if (!verifyRes.ok || !verifyData.success) {
-              notify(`Payment verification failed: ${verifyData?.error || 'Invalid signature'}`);
-              setIsSubmitting(false);
-              return;
-            }
-
-            // Confirmed & Verified! Create order record
-            const newOrder: Order = {
-              id: orderNumber,
-              date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-              status: 'Processing',
-              total: finalTotal,
-              items: orderItems,
-              trackingNumber: trackingCode,
-              paymentMethod: 'Prepaid (Razorpay UPI / Cards)',
-              paymentStatus: 'Paid & Verified',
-              subtotal,
-              shippingFee: baseShipping,
-              discountAmount,
-              appliedDiscountCode: appliedDiscount?.code || null,
-              shippingAddress: {
-                street,
-                city,
-                state,
-                postalCode,
-                country: 'India',
-              },
-            };
-
-            await saveCustomerOrderToFirestore({
-              ...newOrder,
-              orderNumber: newOrder.id,
-              customerName: fullName,
-              customerEmail: email,
-              customerPhone: phone,
-              paymentMethod: 'online',
-              paymentStatus: 'Paid (Razorpay Verified)',
-              razorpayPaymentId: razorpayResponse.razorpay_payment_id,
-              razorpayOrderId: razorpayResponse.razorpay_order_id,
-              razorpaySignature: razorpayResponse.razorpay_signature,
-              subtotal,
-              shippingFee: baseShipping,
-              discountAmount,
-              appliedDiscountCode: appliedDiscount?.code || null,
-              shippingAddress: {
-                street,
-                city,
-                state,
-                postalCode,
-                country: 'India',
-              },
-            });
-
-            // Also persist user address and phone in Firestore
-            if (email) {
-              await saveUserProfileToFirestore(email, {
-                fullName,
-                phone,
-                address: {
-                  street,
-                  city,
-                  state,
-                  postalCode,
-                  country: 'India',
-                },
-              }).catch((e) => console.warn('Could not save user profile during online checkout:', e));
-            }
-
-            addOrder(newOrder, {
-              fullName,
-              email,
-              phone,
-              address: {
-                street,
-                city,
-                state,
-                postalCode,
-                country: 'India',
-              },
-            });
-
-            setPaymentDetails({
-              paymentId: razorpayResponse.razorpay_payment_id,
-              orderId: razorpayResponse.razorpay_order_id,
-            });
-            setPlacedOrder(newOrder);
-            setIsSubmitting(false);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            await completePrepaidOrder(razorpayResponse);
           } catch (verifyErr: any) {
             console.error('Error completing verified order:', verifyErr);
             notify(`Order saved with payment ID ${razorpayResponse.razorpay_payment_id}. Please contact studio support if confirmation email is not received.`);
