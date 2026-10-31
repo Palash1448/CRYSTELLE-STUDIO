@@ -56,6 +56,10 @@ function ProductPage() {
   const { add } = useStore();
   const navigate = useNavigate();
 
+  const allImages = Array.from(
+    new Set([product.image, ...(Array.isArray(product.gallery) ? product.gallery : [])].filter(Boolean))
+  );
+
   const price = product.price + (size === 100 ? -150 : size === 350 ? 200 : 0);
 
   return (
@@ -99,39 +103,41 @@ function ProductPage() {
             </div>
           </div>
 
-          {/* Media Thumbnails */}
-          <div className="thumbnails mt-3 flex items-center gap-2">
-            {/* Primary Photo Thumbnail */}
-            <Button
-              variant="outline"
-              className={`thumbnail relative p-0 overflow-hidden rounded-xl border ${
-                selectedMedia === 'image' && activeImage === product.image
-                  ? 'border-[#C59A44] ring-2 ring-[#C59A44]/30'
-                  : 'border-[#EAE4DC]'
-              }`}
-              aria-label="View product main photo"
-              onClick={() => {
-                setSelectedMedia('image');
-                setActiveImage(product.image);
-              }}
-            >
-              <CldImage
-                src={product.image}
-                alt="Product main view"
-                width={70}
-                height={70}
-                className="w-full h-full object-cover"
-              />
-            </Button>
+          {/* Media Thumbnails (All Uploaded Images & Video) */}
+          <div className="thumbnails mt-3 flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
+            {allImages.map((imgUrl, index) => (
+              <Button
+                key={`${imgUrl}-${index}`}
+                variant="outline"
+                className={`thumbnail relative p-0 overflow-hidden rounded-xl border shrink-0 transition-all ${
+                  selectedMedia === 'image' && activeImage === imgUrl
+                    ? 'border-[#C59A44] ring-2 ring-[#C59A44]/30'
+                    : 'border-[#EAE4DC] hover:border-[#C59A44]/50'
+                }`}
+                aria-label={`View product photo ${index + 1}`}
+                onClick={() => {
+                  setSelectedMedia('image');
+                  setActiveImage(imgUrl);
+                }}
+              >
+                <CldImage
+                  src={imgUrl}
+                  alt={`${product.name} angle ${index + 1}`}
+                  width={70}
+                  height={70}
+                  className="w-full h-full object-cover"
+                />
+              </Button>
+            ))}
 
             {/* Video Showcase Thumbnail (If Available on Cloudinary) */}
             {product.video && (
               <Button
                 variant="outline"
-                className={`thumbnail relative p-0 overflow-hidden rounded-xl border flex flex-col items-center justify-center bg-black/5 text-[#1C1917] ${
+                className={`thumbnail relative p-0 overflow-hidden rounded-xl border flex flex-col items-center justify-center bg-black/5 text-[#1C1917] shrink-0 transition-all ${
                   selectedMedia === 'video'
                     ? 'border-[#C59A44] ring-2 ring-[#C59A44]/30'
-                    : 'border-[#EAE4DC]'
+                    : 'border-[#EAE4DC] hover:border-[#C59A44]/50'
                 }`}
                 aria-label="Play candle video showcase"
                 onClick={() => setSelectedMedia('video')}
@@ -144,29 +150,6 @@ function ProductPage() {
                 </span>
               </Button>
             )}
-
-            {/* Additional gallery sample photo */}
-            <Button
-              variant="outline"
-              className={`thumbnail relative p-0 overflow-hidden rounded-xl border ${
-                selectedMedia === 'image' && activeImage === hero
-                  ? 'border-[#C59A44] ring-2 ring-[#C59A44]/30'
-                  : 'border-[#EAE4DC]'
-              }`}
-              aria-label="View atmospheric photo"
-              onClick={() => {
-                setSelectedMedia('image');
-                setActiveImage(hero);
-              }}
-            >
-              <img
-                src={hero}
-                alt="Atmospheric view"
-                width={70}
-                height={70}
-                className="w-full h-full object-cover"
-              />
-            </Button>
           </div>
         </div>
 

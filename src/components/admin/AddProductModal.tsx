@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Check, Edit2, Image as ImageIcon, Film, Cloud } from 'lucide-react';
+import { X, Sparkles, Check, Edit2, Image as ImageIcon, Film, Cloud, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,6 +35,7 @@ export function AddProductModal({
   const [burnTime, setBurnTime] = useState('45-50 Hours');
   const [stockQuantity, setStockQuantity] = useState(30);
   const [image, setImage] = useState('/hero-candle.jpg');
+  const [gallery, setGallery] = useState<string[]>([]);
   const [video, setVideo] = useState('');
   const [cloudinaryPublicId, setCloudinaryPublicId] = useState('');
   const [cloudinaryVideoPublicId, setCloudinaryVideoPublicId] = useState('');
@@ -51,6 +52,7 @@ export function AddProductModal({
       setBurnTime(productToEdit.burnTime || '45-50 Hours');
       setStockQuantity(productToEdit.stockQuantity ?? 30);
       setImage(productToEdit.image || '/hero-candle.jpg');
+      setGallery(Array.isArray(productToEdit.gallery) ? productToEdit.gallery.filter(Boolean) : []);
       setVideo(productToEdit.video || '');
       setCloudinaryPublicId(productToEdit.cloudinaryPublicId || '');
       setCloudinaryVideoPublicId(productToEdit.cloudinaryVideoPublicId || '');
@@ -65,6 +67,7 @@ export function AddProductModal({
       setBurnTime('45-50 Hours');
       setStockQuantity(30);
       setImage('/hero-candle.jpg');
+      setGallery([]);
       setVideo('');
       setCloudinaryPublicId('');
       setCloudinaryVideoPublicId('');
@@ -91,6 +94,7 @@ export function AddProductModal({
       waxType: waxType.trim() || '100% Pure Soy Wax',
       burnTime: burnTime.trim() || '45-50 Hours',
       image: image.trim() || '/hero-candle.jpg',
+      gallery: gallery.filter((g) => Boolean(g && g.trim())),
       video: video.trim() || undefined,
       cloudinaryPublicId: cloudinaryPublicId.trim() || undefined,
       cloudinaryVideoPublicId: cloudinaryVideoPublicId.trim() || undefined,
@@ -262,6 +266,61 @@ export function AddProductModal({
               }}
               helperText="Hosted on Cloudinary CDN with automatic responsive delivery."
             />
+
+            {/* 2. Additional Gallery Photos (Multi-Image Support) */}
+            <div className="space-y-2.5 pt-3 border-t border-amber-200/60">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-[#A67C2E]" />
+                  <Label className="text-xs font-semibold text-[#1C1917]">
+                    Additional Gallery Images ({gallery.length})
+                  </Label>
+                </div>
+                <span className="text-[10px] text-[#78716C]">
+                  Shown in product photo gallery & thumbnails
+                </span>
+              </div>
+
+              {gallery.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 p-2.5 bg-white rounded-xl border border-[#EAE4DC]">
+                  {gallery.map((imgUrl, idx) => (
+                    <div
+                      key={`${imgUrl}-${idx}`}
+                      className="group relative aspect-square rounded-lg overflow-hidden border border-[#EAE4DC] bg-[#FAF8F5] shadow-2xs"
+                    >
+                      <img
+                        src={imgUrl}
+                        alt={`Product gallery image ${idx + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setGallery(gallery.filter((_, i) => i !== idx))}
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-600/90 hover:bg-red-700 text-white flex items-center justify-center transition-colors cursor-pointer shadow-xs"
+                        title="Remove image from gallery"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                      <span className="absolute bottom-1 left-1 px-1.5 py-0.2 rounded bg-black/60 text-white font-mono text-[9px]">
+                        #{idx + 1}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <CloudinaryUploader
+                label="Add Another Image to Gallery"
+                mediaType="image"
+                value=""
+                onChange={(url) => {
+                  if (url && !gallery.includes(url)) {
+                    setGallery((prev) => [...prev, url]);
+                  }
+                }}
+                helperText="Upload any lifestyle angle, close-up, or packaging box photo."
+              />
+            </div>
 
             {/* 2. Video Uploader */}
             <CloudinaryUploader

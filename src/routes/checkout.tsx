@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { useState, useId, useEffect } from 'react';
 import { useStore } from '@/components/storefront';
 import { products, money, pageHead, getStoredProducts } from '@/lib/store-data';
+import { getStoredStoreSettings } from '@/lib/admin-data';
 import { seoHead } from '@/lib/seo';
 import { lookupPincode } from '@/lib/pincode';
 import { saveCustomerOrderToFirestore, saveUserProfileToFirestore } from '@/lib/firestore-service';
@@ -119,6 +120,17 @@ function CheckoutPage() {
   // Processing & Placed state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
+  const [storeSettings, setStoreSettings] = useState(getStoredStoreSettings);
+
+  useEffect(() => {
+    const handleUpdate = () => setStoreSettings(getStoredStoreSettings());
+    window.addEventListener('storage', handleUpdate);
+    window.addEventListener('crystelle_settings_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('crystelle_settings_updated', handleUpdate);
+    };
+  }, []);
 
   // Calculate pricing
   const subtotal = cart.reduce((total, item) => {
@@ -127,10 +139,13 @@ function CheckoutPage() {
     return total + (p ? (p.price + sizeAdjustment) * item.quantity : 0);
   }, 0);
 
-  // Free shipping above ₹999 or flat ₹69
-  const baseShipping = subtotal >= 999 || appliedDiscount?.code === 'FREESHIP' ? 0 : 69;
+  // Prepaid orders: shipping price is included in product price (₹0).
+  // COD orders: COD handling cost is configured in Admin Settings (defaults to ₹69).
+  const codFee = appliedDiscount?.code === 'FREESHIP' ? 0 : (storeSettings.codFee ?? 69);
+  const effectiveShipping = paymentMethod === 'online' ? 0 : codFee;
+  const baseShipping = effectiveShipping;
   const discountAmount = appliedDiscount ? appliedDiscount.amount : 0;
-  const finalTotal = Math.max(0, subtotal - discountAmount + baseShipping);
+  const finalTotal = Math.max(0, subtotal - discountAmount + effectiveShipping);
 
   // Apply Coupon
   const handleApplyCoupon = (e: React.FormEvent) => {
@@ -147,7 +162,7 @@ function CheckoutPage() {
       setAppliedDiscount({ code, amount: discount, description: '₹100 Studio Special' });
       notify('Coupon CRYSTELLE applied! ₹100 saved.');
     } else if (code === 'FREESHIP') {
-      setAppliedDiscount({ code, amount: 69, description: 'Free Express Shipping' });
+      setAppliedDiscount({ code, amount: codFee, description: 'Complimentary Delivery Voucher' });
       notify('Coupon FREESHIP applied!');
     } else {
       setCouponError('Invalid coupon code. Try WELCOME10 or CRYSTELLE');
@@ -782,7 +797,10 @@ function CheckoutPage() {
                           </span>
                         </div>
                       </div>
-                      <span className="pill-badge-green">Instant &bull; 100% Encrypted</span>
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="pill-badge-green">Free Delivery Included</span>
+                        <span className="text-[10px] text-emerald-800 font-medium">₹0 Shipping</span>
+                      </div>
                     </div>
                   </label>
 
@@ -805,7 +823,7 @@ function CheckoutPage() {
                           </span>
                         </div>
                       </div>
-                      <span className="pill-desc">Doorstep Verification</span>
+                      <span className="pill-desc">+{money(codFee)} COD Fee</span>
                     </div>
                   </label>
                 </div>
@@ -959,13 +977,16 @@ function CheckoutPage() {
                 <div className="breakdown-row">
                   <span className="flex items-center gap-1">
                     <Truck className="w-3.5 h-3.5 text-muted-foreground" />
-                    Shipping (All India)
+                    {paymentMethod === 'online' ? 'Shipping (All India - Prepaid)' : 'COD Handling & Delivery'}
                   </span>
                   <span>
-                    {baseShipping === 0 ? (
-                      <strong className="text-emerald-700 font-semibold">FREE</strong>
+                    {effectiveShipping === 0 ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <strong className="text-emerald-700 font-semibold">FREE</strong>
+                        <span className="text-[10px] text-emerald-800 bg-emerald-100/80 px-1.5 py-0.5 rounded font-medium">Included</span>
+                      </span>
                     ) : (
-                      money(baseShipping)
+                      money(effectiveShipping)
                     )}
                   </span>
                 </div>

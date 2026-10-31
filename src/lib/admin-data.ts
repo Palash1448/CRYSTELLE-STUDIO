@@ -304,6 +304,8 @@ export interface StoreSettings {
   announcementBar: string;
   freeShippingThreshold: number;
   standardShippingFee: number;
+  codFee: number;
+  prepaidShippingIncluded?: boolean;
   taxRatePercent: number;
   gstRatePercent?: number;
   shipprimeToken?: string;
@@ -329,7 +331,9 @@ export const initialStoreSettings: StoreSettings = {
   isAnnouncementActive: true,
   announcementBar: 'Festive Season Special: Enjoy complimentary artisanal wick trimmer on orders above ₹1,499.',
   freeShippingThreshold: 999,
-  standardShippingFee: 99,
+  standardShippingFee: 0, // Prepaid shipping is included in price
+  codFee: 69, // Cash on Delivery handling fee
+  prepaidShippingIncluded: true,
   taxRatePercent: 18,
   gstRatePercent: 18,
   shipprimeToken: 'sp_f89f9d4c23f8a06733aaca480447b552b0ac26a483fb3472d6c2a867d11924b0',
@@ -345,3 +349,66 @@ export const initialStoreSettings: StoreSettings = {
   cloudinaryApiSecret: 'irXoLblOWNynTZ4Ti2bhD2aprtA',
   cloudinaryUploadPreset: '',
 };
+
+export function getStoredStoreSettings(): StoreSettings {
+  if (typeof window === 'undefined') return initialStoreSettings;
+  try {
+    const stored = localStorage.getItem('crystelle_studio_settings');
+    if (stored) {
+      return { ...initialStoreSettings, ...JSON.parse(stored) };
+    }
+  } catch {}
+  return initialStoreSettings;
+}
+
+export function saveStoredStoreSettings(settings: StoreSettings): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('crystelle_studio_settings', JSON.stringify(settings));
+    window.dispatchEvent(new Event('crystelle_settings_updated'));
+  } catch {}
+}
+
+export interface BannerSettings {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  buttonText: string;
+  buttonLink: string;
+  secondaryText: string;
+  secondaryLink: string;
+  imageUrl: string;
+  isActive: boolean;
+}
+
+export const initialBannerSettings: BannerSettings = {
+  eyebrow: 'A little light. A little luxury.',
+  title: 'Handcrafted Candles &\nLuxury Fragrances',
+  subtitle:
+    'Artisanally poured botanical soy candles designed to create a warmer, brighter, and calmer sanctuary in your home.',
+  buttonText: 'Shop Now',
+  buttonLink: '/shop',
+  secondaryText: 'Explore Collections',
+  secondaryLink: '/collections',
+  imageUrl: '/hero-candle.jpg',
+  isActive: true,
+};
+
+export function getStoredBannerSettings(): BannerSettings {
+  if (typeof window === 'undefined') return initialBannerSettings;
+  try {
+    const raw = localStorage.getItem('crystelle_banner_settings');
+    if (raw) {
+      return { ...initialBannerSettings, ...JSON.parse(raw) };
+    }
+  } catch {}
+  return initialBannerSettings;
+}
+
+export function saveStoredBannerSettings(banner: BannerSettings): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('crystelle_banner_settings', JSON.stringify(banner));
+    window.dispatchEvent(new Event('crystelle_banner_updated'));
+  } catch {}
+}

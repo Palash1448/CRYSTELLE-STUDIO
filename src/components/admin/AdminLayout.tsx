@@ -14,10 +14,11 @@ import {
   ShieldCheck,
   Plus,
   FileText,
+  Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-export type AdminTab = 'orders' | 'products' | 'customers' | 'promocodes' | 'invoices';
+export type AdminTab = 'orders' | 'products' | 'customers' | 'promocodes' | 'invoices' | 'settings';
 
 interface AdminLayoutProps {
   activeTab: AdminTab;
@@ -79,6 +80,13 @@ export function AdminLayout({
       icon: FileText,
       badge: 'GST & Pack',
       badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    },
+    {
+      id: 'settings' as AdminTab,
+      label: 'Store & Banner Settings',
+      icon: Settings,
+      badge: 'COD & Hero',
+      badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
     },
   ];
 

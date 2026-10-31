@@ -1,402 +1,467 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Sparkles, Save, Store, ShieldCheck, CheckCircle2, Megaphone, Truck, Cloud, Image as ImageIcon } from 'lucide-react';
+import {
+  Settings,
+  Sparkles,
+  Save,
+  Store,
+  ShieldCheck,
+  CheckCircle2,
+  Megaphone,
+  Truck,
+  Cloud,
+  Image as ImageIcon,
+  Sliders,
+  DollarSign,
+  Layers,
+  ArrowRight,
+  Eye,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { initialStoreSettings } from '@/lib/admin-data';
+import {
+  StoreSettings,
+  BannerSettings,
+  initialStoreSettings,
+  initialBannerSettings,
+  getStoredStoreSettings,
+  saveStoredStoreSettings,
+  getStoredBannerSettings,
+  saveStoredBannerSettings,
+} from '@/lib/admin-data';
+import { CloudinaryUploader } from './CloudinaryUploader';
+import { money } from '@/lib/store-data';
 
 export function AdminSettings() {
-  const [settings, setSettings] = useState(initialStoreSettings);
+  const [settings, setSettings] = useState<StoreSettings>(getStoredStoreSettings);
+  const [banner, setBanner] = useState<BannerSettings>(getStoredBannerSettings);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('crystelle_studio_settings');
-      if (stored) {
-        setSettings({ ...initialStoreSettings, ...JSON.parse(stored) });
-      }
-    } catch {
-      // ignore
-    }
+    setSettings(getStoredStoreSettings());
+    setBanner(getStoredBannerSettings());
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      localStorage.setItem('crystelle_studio_settings', JSON.stringify(settings));
-    } catch {
-      // ignore
-    }
+    saveStoredStoreSettings(settings);
+    saveStoredBannerSettings(banner);
     setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setTimeout(() => setSaved(false), 3500);
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Ready For Customization Callout Banner */}
-      <div className="p-4 rounded-xl bg-linear-to-r from-amber-500/10 via-[#1A1816] to-[#141311] border border-amber-500/30 flex items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
-            <Settings className="w-5 h-5" />
+    <div className="space-y-6 animate-in fade-in duration-300 pb-12 font-sans">
+      {/* Top Notification / Title Banner */}
+      <div className="bg-white rounded-2xl border border-[#EAE4DC] p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-[#A67C2E] shrink-0">
+            <Sliders className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-xs font-semibold text-[#EDE8E1]">
-                Store Settings & Studio Operations Hub Active
-              </h3>
-              <span className="text-[10px] px-2 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">
-                Customizable
+              <h2 className="text-sm font-semibold text-[#1C1917]">
+                Store Settings & Hero Banner Customizer
+              </h2>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 font-semibold">
+                Live Sync
               </span>
             </div>
-            <p className="text-[11px] text-[#9E978E] mt-0.5">
-              Control studio identity, announcement banners, GST tax rate, and shipping fee rules. Tell me what payment gateway settings or invoice formats you would like added later!
+            <p className="text-xs text-[#78716C] mt-0.5">
+              Configure Cash on Delivery (COD) handling fee, prepaid free shipping policy, homepage hero banner, and brand identity.
             </p>
           </div>
         </div>
 
         {saved && (
-          <span className="text-xs text-emerald-400 flex items-center gap-1 font-medium">
-            <CheckCircle2 className="w-4 h-4" /> Preferences saved!
-          </span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-medium animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Changes saved and synced across storefront!
+          </div>
         )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Studio Identity Card */}
-        <div className="p-6 rounded-xl bg-[#141311] border border-[#262320] space-y-4 shadow-xl">
-          <div className="flex items-center gap-2 pb-3 border-b border-[#262320]">
-            <Store className="w-4 h-4 text-[#D4A359]" />
-            <h3 className="text-xs font-semibold text-[#EDE8E1]">Studio & Brand Profile</h3>
+        {/* ========================================================= */}
+        {/* 1. SHIPPING & COMMERCE ECONOMICS (COD COST & PREPAID)      */}
+        {/* ========================================================= */}
+        <div className="bg-white rounded-2xl border border-[#EAE4DC] p-5 sm:p-6 shadow-sm space-y-5">
+          <div className="flex items-center justify-between pb-3.5 border-b border-[#EAE4DC]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
+                <Truck className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold text-[#1C1917] uppercase tracking-wider">
+                  Shipping & Payment Economics
+                </h3>
+                <p className="text-[11px] text-[#78716C]">
+                  Configure prepaid delivery pricing and cash on delivery handling charges
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium">
+              Prepaid Shipping: FREE (Included)
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">Artisan Studio Name</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Cash on Delivery (COD) Handling Cost */}
+            <div className="space-y-1.5 p-3.5 rounded-xl bg-[#FAF8F5] border border-[#EAE4DC]">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-[#1C1917]">
+                  COD Handling Cost (₹) *
+                </Label>
+                <span className="text-[10px] font-mono text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded font-semibold">
+                  COD Only
+                </span>
+              </div>
               <Input
-                value={settings.storeName}
-                onChange={(e) => setSettings({ ...settings, storeName: e.target.value })}
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
+                type="number"
+                min={0}
+                required
+                value={settings.codFee ?? 69}
+                onChange={(e) =>
+                  setSettings({ ...settings, codFee: Math.max(0, Number(e.target.value)) })
+                }
+                className="bg-white border-[#EAE4DC] text-xs font-mono font-semibold text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
               />
+              <p className="text-[11px] text-[#78716C] leading-snug">
+                Added at checkout <strong>only</strong> when customer chooses Cash on Delivery. Current fee: <strong className="text-[#1C1917]">{money(settings.codFee ?? 69)}</strong>.
+              </p>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">Brand Tagline</Label>
+            {/* Prepaid Shipping Notice */}
+            <div className="space-y-1.5 p-3.5 rounded-xl bg-emerald-50/50 border border-emerald-200/80">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-emerald-900">
+                  Prepaid Orders Shipping
+                </Label>
+                <span className="text-[10px] text-emerald-800 font-semibold">Included</span>
+              </div>
+              <div className="h-10 rounded-xl bg-white border border-emerald-200 px-3 flex items-center justify-between text-xs font-semibold text-emerald-800">
+                <span>Free Nationwide Delivery</span>
+                <span className="font-mono">₹0</span>
+              </div>
+              <p className="text-[11px] text-emerald-800/80 leading-snug">
+                All prepaid orders (Razorpay UPI, Cards, NetBanking) automatically get complimentary shipping included in candle price.
+              </p>
+            </div>
+
+            {/* GST Rate */}
+            <div className="space-y-1.5 p-3.5 rounded-xl bg-[#FAF8F5] border border-[#EAE4DC]">
+              <Label className="text-xs font-semibold text-[#1C1917]">GST / Tax Rate (%)</Label>
               <Input
-                value={settings.tagline}
-                onChange={(e) => setSettings({ ...settings, tagline: e.target.value })}
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
+                type="number"
+                min={0}
+                max={100}
+                value={settings.taxRatePercent ?? 18}
+                onChange={(e) =>
+                  setSettings({ ...settings, taxRatePercent: Number(e.target.value) })
+                }
+                className="bg-white border-[#EAE4DC] text-xs font-mono font-semibold text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
               />
+              <p className="text-[11px] text-[#78716C] leading-snug">
+                Standard GST rate applied on decorative and scented candles (HSN 34060010).
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================= */}
+        {/* 2. HOMEPAGE HERO BANNER CUSTOMIZER                        */}
+        {/* ========================================================= */}
+        <div className="bg-white rounded-2xl border border-[#EAE4DC] p-5 sm:p-6 shadow-sm space-y-5">
+          <div className="flex items-center justify-between pb-3.5 border-b border-[#EAE4DC]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-[#A67C2E]">
+                <ImageIcon className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold text-[#1C1917] uppercase tracking-wider">
+                  Storefront Hero Banner Section
+                </h3>
+                <p className="text-[11px] text-[#78716C]">
+                  Customize the main headline, subtitle, action buttons, and background photograph on your homepage
+                </p>
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 text-xs font-medium text-[#44403C] cursor-pointer bg-[#FAF8F5] px-3 py-1.5 rounded-xl border border-[#EAE4DC]">
+              <input
+                type="checkbox"
+                checked={banner.isActive}
+                onChange={(e) => setBanner({ ...banner, isActive: e.target.checked })}
+                className="rounded accent-[#C59A44] w-4 h-4"
+              />
+              <span>Banner Active</span>
+            </label>
+          </div>
+
+          {/* Live Preview Card */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-[#78716C]">
+              <Eye className="w-3.5 h-3.5 text-[#A67C2E]" />
+              <span>Live Storefront Preview</span>
+            </div>
+
+            <div className="relative rounded-2xl overflow-hidden border border-[#EAE4DC] aspect-21/9 min-h-[220px] sm:min-h-[260px] flex items-center p-6 sm:p-10 shadow-inner group">
+              <img
+                src={banner.imageUrl || '/hero-candle.jpg'}
+                alt="Banner preview"
+                className="absolute inset-0 w-full h-full object-cover group-hover:scale-102 transition-transform duration-700"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-transparent pointer-events-none" />
+
+              <div className="relative z-10 max-w-lg space-y-2.5 text-white">
+                <span className="inline-block text-[10px] tracking-widest font-semibold uppercase text-[#F3C77C] bg-black/40 backdrop-blur-xs px-2.5 py-0.5 rounded-full border border-[#F3C77C]/30">
+                  {banner.eyebrow || 'A little light. A little luxury.'}
+                </span>
+                <h2 className="text-xl sm:text-2xl font-serif font-semibold leading-tight whitespace-pre-line text-[#FAF8F5]">
+                  {banner.title || 'Handcrafted Candles &\nLuxury Fragrances'}
+                </h2>
+                <p className="text-xs text-[#E7E5E4] max-w-md line-clamp-2 leading-relaxed">
+                  {banner.subtitle || 'Artisanally poured botanical soy candles designed for your sanctuary.'}
+                </p>
+                <div className="flex items-center gap-3 pt-1">
+                  <div className="px-4 py-2 rounded-xl bg-[#C59A44] text-[#121110] font-semibold text-xs inline-flex items-center gap-1.5 shadow-md">
+                    <span>{banner.buttonText || 'Shop Now'}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </div>
+                  {banner.secondaryText && (
+                    <span className="text-xs text-white/90 underline underline-offset-4 font-medium">
+                      {banner.secondaryText}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
+          {/* Banner Editing Inputs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">Official Support Email</Label>
+              <Label className="text-xs font-semibold text-[#44403C]">Eyebrow Tagline</Label>
               <Input
-                type="email"
-                value={settings.contactEmail}
-                onChange={(e) => setSettings({ ...settings, contactEmail: e.target.value })}
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
+                value={banner.eyebrow}
+                onChange={(e) => setBanner({ ...banner, eyebrow: e.target.value })}
+                placeholder="A little light. A little luxury."
+                className="bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">Workshop Phone</Label>
+              <Label className="text-xs font-semibold text-[#44403C]">
+                Banner Main Title (Use \n for new lines)
+              </Label>
               <Input
-                value={settings.contactPhone}
-                onChange={(e) => setSettings({ ...settings, contactPhone: e.target.value })}
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
+                value={banner.title}
+                onChange={(e) => setBanner({ ...banner, title: e.target.value })}
+                placeholder="Handcrafted Candles &\nLuxury Fragrances"
+                className="bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs text-[#C8C2BA]">Studio Workshop Address</Label>
-            <Input
-              value={settings.workshopLocation}
-              onChange={(e) => setSettings({ ...settings, workshopLocation: e.target.value })}
-              className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
+            <Label className="text-xs font-semibold text-[#44403C]">Banner Subtitle Description</Label>
+            <Textarea
+              rows={2}
+              value={banner.subtitle}
+              onChange={(e) => setBanner({ ...banner, subtitle: e.target.value })}
+              placeholder="Artisanally poured botanical soy candles designed to create a warmer, brighter, and calmer sanctuary in your home."
+              className="bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] focus-visible:ring-[#C59A44]"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-[#44403C]">Primary Button Text</Label>
+                <Input
+                  value={banner.buttonText}
+                  onChange={(e) => setBanner({ ...banner, buttonText: e.target.value })}
+                  placeholder="Shop Now"
+                  className="bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-[#44403C]">Primary Link</Label>
+                <Input
+                  value={banner.buttonLink}
+                  onChange={(e) => setBanner({ ...banner, buttonLink: e.target.value })}
+                  placeholder="/shop"
+                  className="bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-[#44403C]">Secondary Link Text</Label>
+                <Input
+                  value={banner.secondaryText}
+                  onChange={(e) => setBanner({ ...banner, secondaryText: e.target.value })}
+                  placeholder="Explore Collections"
+                  className="bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-[#44403C]">Secondary Link</Label>
+                <Input
+                  value={banner.secondaryLink}
+                  onChange={(e) => setBanner({ ...banner, secondaryLink: e.target.value })}
+                  placeholder="/collections"
+                  className="bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Banner Image Uploader */}
+          <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE4DC] space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold text-[#1C1917]">
+                Hero Banner Background Image
+              </Label>
+              <span className="text-[10px] text-[#78716C]">
+                Recommended: 1536 × 1024 px (High Resolution Landscape)
+              </span>
+            </div>
+
+            <CloudinaryUploader
+              label="Upload Banner Photo via Cloudinary or Local Fallback"
+              mediaType="image"
+              folder="crystelle_studio/banners"
+              value={banner.imageUrl}
+              onChange={(url) => setBanner({ ...banner, imageUrl: url })}
+              onRemove={() => setBanner({ ...banner, imageUrl: '/hero-candle.jpg' })}
+              helperText="Hosted on Cloudinary CDN with automatic responsive delivery."
             />
           </div>
         </div>
 
-        {/* Storefront Announcement Bar */}
-        <div className="p-6 rounded-xl bg-[#141311] border border-[#262320] space-y-4 shadow-xl">
-          <div className="flex items-center justify-between pb-3 border-b border-[#262320]">
-            <div className="flex items-center gap-2">
-              <Megaphone className="w-4 h-4 text-[#D4A359]" />
-              <h3 className="text-xs font-semibold text-[#EDE8E1]">Storefront Header Announcement Bar</h3>
+        {/* ========================================================= */}
+        {/* 3. STOREFRONT HEADER ANNOUNCEMENT BAR                     */}
+        {/* ========================================================= */}
+        <div className="bg-white rounded-2xl border border-[#EAE4DC] p-5 sm:p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between pb-3.5 border-b border-[#EAE4DC]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-[#A67C2E]">
+                <Megaphone className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold text-[#1C1917] uppercase tracking-wider">
+                  Top Header Announcement Marquee
+                </h3>
+                <p className="text-[11px] text-[#78716C]">
+                  Show special promotional discount codes or festive offers on top of every page
+                </p>
+              </div>
             </div>
-            <label className="flex items-center gap-2 text-xs text-[#C8C2BA] cursor-pointer">
+            <label className="flex items-center gap-2 text-xs font-medium text-[#44403C] cursor-pointer bg-[#FAF8F5] px-3 py-1.5 rounded-xl border border-[#EAE4DC]">
               <input
                 type="checkbox"
                 checked={settings.isAnnouncementActive}
                 onChange={(e) =>
                   setSettings({ ...settings, isAnnouncementActive: e.target.checked })
                 }
-                className="rounded accent-[#D4A359]"
+                className="rounded accent-[#C59A44] w-4 h-4"
               />
-              <span>Banner Active</span>
+              <span>Announcement Active</span>
             </label>
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs text-[#C8C2BA]">Promo Message (Shown at top of storefront)</Label>
+            <Label className="text-xs font-semibold text-[#44403C]">Announcement Text</Label>
             <Textarea
               rows={2}
               value={settings.announcementBar}
               onChange={(e) => setSettings({ ...settings, announcementBar: e.target.value })}
-              className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
+              className="bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] focus-visible:ring-[#C59A44]"
             />
           </div>
+        </div>
 
-          {settings.isAnnouncementActive && (
-            <div className="p-3 rounded-lg bg-[#181614] border border-[#2B2724] text-xs flex items-center justify-between">
-              <span className="text-[10px] text-[#8C847B] uppercase font-bold">Preview:</span>
-              <span className="text-[#F3C77C] font-medium">{settings.announcementBar}</span>
+        {/* ========================================================= */}
+        {/* 4. STUDIO & BRAND IDENTITY                                */}
+        {/* ========================================================= */}
+        <div className="bg-white rounded-2xl border border-[#EAE4DC] p-5 sm:p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2.5 pb-3.5 border-b border-[#EAE4DC]">
+            <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-[#A67C2E]">
+              <Store className="w-4 h-4" />
             </div>
+            <div>
+              <h3 className="text-xs font-semibold text-[#1C1917] uppercase tracking-wider">
+                Artisan Studio & Brand Profile
+              </h3>
+              <p className="text-[11px] text-[#78716C]">
+                Studio contact details printed on tax invoices and dispatch slips
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#44403C]">Brand Name</Label>
+              <Input
+                value={settings.storeName}
+                onChange={(e) => setSettings({ ...settings, storeName: e.target.value })}
+                className="bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#44403C]">Tagline</Label>
+              <Input
+                value={settings.tagline}
+                onChange={(e) => setSettings({ ...settings, tagline: e.target.value })}
+                className="bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#44403C]">Support Email</Label>
+              <Input
+                type="email"
+                value={settings.contactEmail}
+                onChange={(e) => setSettings({ ...settings, contactEmail: e.target.value })}
+                className="bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#44403C]">Workshop Phone</Label>
+              <Input
+                value={settings.contactPhone}
+                onChange={(e) => setSettings({ ...settings, contactPhone: e.target.value })}
+                className="bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-[#44403C]">Workshop Location</Label>
+            <Input
+              value={settings.workshopLocation}
+              onChange={(e) => setSettings({ ...settings, workshopLocation: e.target.value })}
+              className="bg-[#FAF8F5] border-[#EAE4DC] text-xs text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
+            />
+          </div>
+        </div>
+
+        {/* Submit Actions */}
+        <div className="flex items-center justify-end gap-3 pt-2">
+          {saved && (
+            <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> All updates successfully saved!
+            </span>
           )}
-        </div>
-
-        {/* Shipping & GST Policies */}
-        <div className="p-6 rounded-xl bg-[#141311] border border-[#262320] space-y-4 shadow-xl">
-          <div className="flex items-center gap-2 pb-3 border-b border-[#262320]">
-            <ShieldCheck className="w-4 h-4 text-[#D4A359]" />
-            <h3 className="text-xs font-semibold text-[#EDE8E1]">Shipping & Commerce Economics</h3>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">Free Shipping Threshold (₹)</Label>
-              <Input
-                type="number"
-                value={settings.freeShippingThreshold}
-                onChange={(e) =>
-                  setSettings({ ...settings, freeShippingThreshold: Number(e.target.value) })
-                }
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">Standard Flat Shipping Rate (₹)</Label>
-              <Input
-                type="number"
-                value={settings.standardShippingFee}
-                onChange={(e) =>
-                  setSettings({ ...settings, standardShippingFee: Number(e.target.value) })
-                }
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">GST / Tax Rate (%)</Label>
-              <Input
-                type="number"
-                value={settings.taxRatePercent}
-                onChange={(e) =>
-                  setSettings({ ...settings, taxRatePercent: Number(e.target.value) })
-                }
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* ShipPrime Logistics & Courier Hub */}
-        <div className="p-6 rounded-xl bg-[#141311] border border-[#262320] space-y-4 shadow-xl">
-          <div className="flex items-center justify-between pb-3 border-b border-[#262320]">
-            <div className="flex items-center gap-2">
-              <Truck className="w-4 h-4 text-[#D4A359]" />
-              <div>
-                <h3 className="text-xs font-semibold text-[#EDE8E1]">ShipPrime Logistics & Courier Integration</h3>
-                <p className="text-[11px] text-[#8C847B]">
-                  Live Forward Order API (`https://api.shipprime.live/v1/forward`) for Delhivery, Xpressbees & Shadowfax
-                </p>
-              </div>
-            </div>
-            <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-medium">
-              Live API Active
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">ShipPrime Authorization Bearer Token</Label>
-              <Input
-                type="password"
-                value={settings.shipprimeToken || ''}
-                onChange={(e) =>
-                  setSettings({ ...settings, shipprimeToken: e.target.value })
-                }
-                placeholder="Bearer sp_..."
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1] font-mono"
-              />
-              <span className="text-[10px] text-[#78716C] block">
-                Token is securely stored and used for generating forward AWBs and labels.
-              </span>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">Pickup Warehouse Pincode</Label>
-              <Input
-                value={settings.shipprimePickupPincode || ''}
-                onChange={(e) =>
-                  setSettings({ ...settings, shipprimePickupPincode: e.target.value })
-                }
-                placeholder="122002"
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1] font-mono"
-              />
-              <span className="text-[10px] text-[#78716C] block">
-                Pincode configured in your ShipPrime Seller Panel warehouse.
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">Warehouse Pickup Name</Label>
-              <Input
-                value={settings.shipprimePickupName || ''}
-                onChange={(e) =>
-                  setSettings({ ...settings, shipprimePickupName: e.target.value })
-                }
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">Warehouse Phone (10 digits)</Label>
-              <Input
-                value={settings.shipprimePickupPhone || ''}
-                onChange={(e) =>
-                  setSettings({ ...settings, shipprimePickupPhone: e.target.value })
-                }
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">Warehouse City & State</Label>
-              <Input
-                value={`${settings.shipprimePickupCity || 'Gurgaon'}, ${settings.shipprimePickupState || 'Haryana'}`}
-                onChange={(e) => {
-                  const parts = e.target.value.split(',');
-                  setSettings({
-                    ...settings,
-                    shipprimePickupCity: parts[0]?.trim() || '',
-                    shipprimePickupState: parts[1]?.trim() || '',
-                  });
-                }}
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1]"
-              />
-            </div>
-          </div>
-
-          <div className="p-3 rounded-xl bg-[#181614] border border-[#2B2724] flex items-center justify-between text-xs text-[#8C847B]">
-            <div className="flex items-center gap-2">
-              <span className="text-[#F3C77C] font-semibold">Candle HSN Code:</span>
-              <span className="font-mono text-[#EDE8E1]">34060010</span>
-              <span className="text-[11px]">(Decorative & Scented Candles)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[#F3C77C] font-semibold">Supported Couriers:</span>
-              <span className="text-[#EDE8E1]">Delhivery, Xpressbees, Shadowfax</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Cloudinary Media Storage & CDN */}
-        <div className="p-6 rounded-xl bg-[#141311] border border-[#262320] space-y-4 shadow-xl">
-          <div className="flex items-center justify-between pb-3 border-b border-[#262320]">
-            <div className="flex items-center gap-2">
-              <Cloud className="w-4 h-4 text-[#D4A359]" />
-              <div>
-                <h3 className="text-xs font-semibold text-[#EDE8E1]">Cloudinary Media Storage & CDN</h3>
-                <p className="text-[11px] text-[#8C847B]">
-                  High-speed CDN, auto-WebP conversion & auto-gravity cropping for product photos & videos
-                </p>
-              </div>
-            </div>
-            <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">
-              Auto Fallback Active
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">Cloudinary Cloud Name</Label>
-              <Input
-                value={settings.cloudinaryCloudName || ''}
-                onChange={(e) =>
-                  setSettings({ ...settings, cloudinaryCloudName: e.target.value })
-                }
-                placeholder="e6rnpzii"
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1] font-mono"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">API Key</Label>
-              <Input
-                value={settings.cloudinaryApiKey || ''}
-                onChange={(e) =>
-                  setSettings({ ...settings, cloudinaryApiKey: e.target.value })
-                }
-                placeholder="624812375866731"
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1] font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">API Secret</Label>
-              <Input
-                type="password"
-                value={settings.cloudinaryApiSecret || ''}
-                onChange={(e) =>
-                  setSettings({ ...settings, cloudinaryApiSecret: e.target.value })
-                }
-                placeholder="Found in Cloudinary Console > Settings > Access Keys"
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1] font-mono"
-              />
-              <span className="text-[10px] text-[#78716C] block">
-                Required for direct signed uploads. Matches your Access Key secret in Cloudinary Console.
-              </span>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#C8C2BA]">Unsigned Upload Preset (Recommended)</Label>
-              <Input
-                value={settings.cloudinaryUploadPreset || ''}
-                onChange={(e) =>
-                  setSettings({ ...settings, cloudinaryUploadPreset: e.target.value })
-                }
-                placeholder="e.g. crystelle_preset"
-                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1] font-mono"
-              />
-              <span className="text-[10px] text-[#78716C] block">
-                Create in Settings &gt; Upload &gt; Upload presets (Unsigned). Eliminates signature errors.
-              </span>
-            </div>
-          </div>
-
-          <div className="p-3 rounded-lg bg-[#181614] border border-[#2B2724] text-[11px] text-[#9E978E] flex items-center justify-between">
-            <span>
-              💡 <strong className="text-[#EDE8E1]">Automatic Local Fallback:</strong> If Cloudinary rejects the signature or is unconfigured, uploads automatically save to <code className="text-[#D4A359]">/public/uploads/</code> or store inline, so adding products never fails.
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-3 pt-4">
           <Button
             type="submit"
-            className="bg-[#D4A359] hover:bg-[#E0B26D] text-[#121110] font-semibold text-xs px-6 h-10 shadow-lg shadow-[#D4A359]/20"
+            className="bg-[#C59A44] hover:bg-[#B58934] text-white font-semibold text-xs px-7 h-11 rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2"
           >
-            <Save className="w-4 h-4 mr-1.5" /> Save Studio Settings
+            <Save className="w-4 h-4" /> Save Store & Banner Settings
           </Button>
         </div>
       </form>

@@ -64,12 +64,8 @@ export function CartDrawer() {
     return total + (p.price + priceDelta) * item.quantity;
   }, 0);
 
-  const freeShippingThreshold = 999;
-  const isFreeShipping = subtotal >= freeShippingThreshold;
-  const freeShippingRemaining = Math.max(0, freeShippingThreshold - subtotal);
-  const freeShippingProgress = Math.min(100, Math.round((subtotal / freeShippingThreshold) * 100));
-  const shippingFee = cart.length ? (isFreeShipping ? 0 : 69) : 0;
-  const grandTotal = subtotal + shippingFee;
+  // Prepaid shipping is included in the price (₹0). COD has customizable fee at checkout.
+  const grandTotal = subtotal;
 
   return (
     <div
@@ -117,34 +113,17 @@ export function CartDrawer() {
             </Button>
           </div>
 
-          {/* Free Shipping Progress Notification */}
-          <div className="px-4 sm:px-5 py-3 bg-[#F5EFE6]/60 border-b border-[#EAE4DC] shrink-0 space-y-1.5">
-            <div className="flex items-center justify-between text-xs text-[#57534E]">
-              <div className="flex items-center gap-1.5 font-medium">
-                <Truck className="w-3.5 h-3.5 text-[#A67C2E]" />
-                {isFreeShipping ? (
-                  <span className="text-[#A67C2E] font-semibold">
-                    You've unlocked FREE Delivery across India!
-                  </span>
-                ) : (
-                  <span>
-                    Add <strong className="text-[#1C1917]">{money(freeShippingRemaining)}</strong> more for{' '}
-                    <strong className="text-[#A67C2E]">FREE Delivery</strong>
-                  </span>
-                )}
-              </div>
-              <span className="text-[10px] font-mono text-[#78716C]">{freeShippingProgress}%</span>
+          {/* Free Shipping Included Notification */}
+          <div className="px-4 sm:px-5 py-2.5 bg-[#FAF5EB] border-b border-[#EAE4DC] shrink-0 flex items-center justify-between text-xs text-[#57534E]">
+            <div className="flex items-center gap-1.5 font-medium">
+              <Truck className="w-3.5 h-3.5 text-[#A67C2E]" />
+              <span className="text-[#A67C2E] font-semibold">
+                Prepaid Shipping Included • FREE Delivery
+              </span>
             </div>
-            <div className="w-full bg-[#EAE4DC] h-1.5 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  isFreeShipping
-                    ? 'bg-emerald-600'
-                    : 'bg-linear-to-r from-[#D4A359] to-[#C59A44]'
-                }`}
-                style={{ width: `${freeShippingProgress}%` }}
-              />
-            </div>
+            <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+              ₹0 on UPI / Cards
+            </span>
           </div>
 
           {/* Cart Items List */}
@@ -279,17 +258,13 @@ export function CartDrawer() {
                   <span className="font-mono font-medium text-[#1C1917]">{money(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-[#78716C]">
-                  <span>Shipping Estimate</span>
-                  <span className="font-mono font-medium text-[#1C1917]">
-                    {isFreeShipping ? (
-                      <span className="text-emerald-700 font-semibold uppercase text-[10px]">FREE</span>
-                    ) : (
-                      money(shippingFee)
-                    )}
+                  <span>Shipping (Prepaid Orders)</span>
+                  <span className="font-mono font-medium text-emerald-700 font-semibold uppercase text-[10px]">
+                    FREE (Included in price)
                   </span>
                 </div>
                 <div className="flex justify-between pt-2 border-t border-[#F0ECE6] text-sm font-semibold text-[#1C1917]">
-                  <span>Estimated Total</span>
+                  <span>Total (Prepaid)</span>
                   <span className="font-mono text-[#A67C2E] text-base">{money(grandTotal)}</span>
                 </div>
               </div>

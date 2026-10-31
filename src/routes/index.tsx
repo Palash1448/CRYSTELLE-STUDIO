@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Benefits, ProductCard, ArrowRight, useStore } from "@/components/storefront";
 import { hero, ambience, categories, getStoredProducts } from "@/lib/store-data";
+import { getStoredBannerSettings, BannerSettings } from "@/lib/admin-data";
 import { seoHead, buildOrganizationSchema, buildWebSiteSchema } from "@/lib/seo";
 
 const HOME_FAQS = [
@@ -42,40 +44,48 @@ function Index() {
   const activeProducts =
     storeProducts && storeProducts.length > 0 ? storeProducts : getStoredProducts();
 
+  const [banner, setBanner] = useState<BannerSettings>(getStoredBannerSettings);
+
+  useEffect(() => {
+    const handleUpdate = () => setBanner(getStoredBannerSettings());
+    window.addEventListener('storage', handleUpdate);
+    window.addEventListener('crystelle_banner_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('crystelle_banner_updated', handleUpdate);
+    };
+  }, []);
+
   return (
     <main>
-      <section className="hero">
-        <img
-          src={hero}
-          alt="Hand-poured Crystelle Studio Vanilla Dream candle with a glowing flame and delicate botanical accents"
-          width={1536}
-          height={1024}
-          fetchPriority="high"
-        />
-        <div className="hero-copy">
-          <div className="eyebrow">A little light. A little luxury.</div>
-          <h1>
-            Handcrafted Candles &amp;
-            <br />
-            Luxury Fragrances
-          </h1>
-          <p>
-            Artisanally poured botanical soy candles designed to create a warmer,
-            <br />
-            brighter, and calmer sanctuary in your home.
-          </p>
-          <div className="hero-actions">
-            <Button asChild className="shop-button">
-              <Link to="/shop">
-                Shop Now <ArrowRight />
-              </Link>
-            </Button>
-            <Link className="underlined" to="/collections">
-              Explore Collections
-            </Link>
+      {banner.isActive && (
+        <section className="hero">
+          <img
+            src={banner.imageUrl || hero}
+            alt={(banner.title || 'Crystelle Studio Handcrafted Candles').replace(/\n/g, ' ')}
+            width={1536}
+            height={1024}
+            fetchPriority="high"
+          />
+          <div className="hero-copy">
+            {banner.eyebrow && <div className="eyebrow">{banner.eyebrow}</div>}
+            <h1 className="whitespace-pre-line">{banner.title}</h1>
+            <p className="whitespace-pre-line">{banner.subtitle}</p>
+            <div className="hero-actions">
+              <Button asChild className="shop-button">
+                <Link to={banner.buttonLink || "/shop"}>
+                  {banner.buttonText || "Shop Now"} <ArrowRight />
+                </Link>
+              </Button>
+              {banner.secondaryText && (
+                <Link className="underlined" to={banner.secondaryLink || "/collections"}>
+                  {banner.secondaryText}
+                </Link>
+              )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <Benefits />
 

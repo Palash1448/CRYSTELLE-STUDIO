@@ -6,6 +6,7 @@ import { AdminProducts } from '@/components/admin/AdminProducts';
 import { AdminCustomers } from '@/components/admin/AdminCustomers';
 import { AdminPromocodes } from '@/components/admin/AdminPromocodes';
 import { AdminInvoices } from '@/components/admin/AdminInvoices';
+import { AdminSettings } from '@/components/admin/AdminSettings';
 import { AdminLoginPage } from '@/components/admin/AdminLoginPage';
 import { AddProductModal } from '@/components/admin/AddProductModal';
 import { OrderDetailsModal } from '@/components/admin/OrderDetailsModal';
@@ -508,6 +509,8 @@ function AdminPage() {
       )}
 
       {activeTab === 'invoices' && <AdminInvoices orders={orders} />}
+
+      {activeTab === 'settings' && <AdminSettings />}
 
       {/* Global Interactive CRUD Modals */}
       {/* 1. Product Form Modal (Add & Edit) */}
