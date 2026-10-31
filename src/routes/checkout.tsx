@@ -414,6 +414,7 @@ function CheckoutPage() {
       // STEP 2: Open Razorpay Standard Checkout Modal
       await openRazorpayModal({
         orderId: orderData.order_id,
+        keyId: orderData.key_id,
         amount: orderData.amount,
         currency: orderData.currency,
         name: 'Crystelle Studio',

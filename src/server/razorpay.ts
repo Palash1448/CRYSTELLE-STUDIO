@@ -42,10 +42,10 @@ export function getCredentials(env?: unknown) {
     }
   }
 
-  // Default test credentials provided in workspace .env
+  // Default credentials
   return {
-    keyId: keyId || 'rzp_test_Tq8zXO9tg8iTzT',
-    keySecret: keySecret || 'tUTIy8awhrGqsdcyVrjzL8k3',
+    keyId: keyId || 'rzp_live_TuU6uGAFUfQQtQ',
+    keySecret: keySecret || 'jnUS2CwHH00kbdeu1peVgchY',
   };
 }
 

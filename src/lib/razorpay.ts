@@ -54,6 +54,7 @@ export interface RazorpaySuccessResponse {
 
 export interface OpenCheckoutOptions {
   orderId: string;
+  keyId?: string;
   amount: number; // in paise
   currency?: string;
   name?: string;
@@ -78,8 +79,9 @@ export async function openRazorpayModal(options: OpenCheckoutOptions): Promise<v
   }
 
   const keyId =
+    options.keyId ||
     (typeof import.meta !== 'undefined' && import.meta.env?.['VITE_RAZORPAY_KEY_ID']) ||
-    'rzp_test_Tq8zXO9tg8iTzT';
+    'rzp_live_TuU6uGAFUfQQtQ';
 
   const fullOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 
