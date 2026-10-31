@@ -135,8 +135,7 @@ function CheckoutPage() {
   // Calculate pricing
   const subtotal = cart.reduce((total, item) => {
     const p = allProducts.find((prod) => prod.id === item.id);
-    const sizeAdjustment = item.size === 100 ? -150 : item.size === 350 ? 200 : 0;
-    return total + (p ? (p.price + sizeAdjustment) * item.quantity : 0);
+    return total + (p ? p.price * item.quantity : 0);
   }, 0);
 
   // Prepaid orders: shipping price is included in product price (₹0).
@@ -192,13 +191,12 @@ function CheckoutPage() {
         .map((item) => {
           const p = allProducts.find((prod) => prod.id === item.id);
           if (!p) return null;
-          const sizeAdjustment = item.size === 100 ? -150 : item.size === 350 ? 200 : 0;
           return {
             id: p.id,
             name: p.name,
-            size: item.size,
+            size: 0,
             quantity: item.quantity,
-            price: p.price + sizeAdjustment,
+            price: p.price,
             image: p.image,
           };
         })
@@ -918,15 +916,14 @@ function CheckoutPage() {
                 {cart.map((item) => {
                   const p = allProducts.find((prod) => prod.id === item.id);
                   if (!p) return null;
-                  const sizeAdjustment = item.size === 100 ? -150 : item.size === 350 ? 200 : 0;
-                  const itemPrice = (p.price + sizeAdjustment) * item.quantity;
+                  const itemPrice = p.price * item.quantity;
                   return (
                     <div key={item.id + item.size} className="summary-item-row">
                       <img src={p.image} alt={p.name} className="summary-item-img" width={48} height={48} />
                       <div className="summary-item-info">
                         <span className="summary-item-title">{p.name}</span>
                         <span className="summary-item-meta">
-                          Qty: {item.quantity} &bull; {item.size > 1 ? `${item.size}g` : '1 Set'}
+                          Qty: {item.quantity} &bull; {p.category}
                         </span>
                       </div>
                       <span className="summary-item-price">{money(itemPrice)}</span>

@@ -49,7 +49,6 @@ export const Route = createFileRoute('/product/$slug')({
 
 function ProductPage() {
   const product = Route.useLoaderData();
-  const [size, setSize] = useState(200);
   const [quantity, setQuantity] = useState(1);
   const [selectedMedia, setSelectedMedia] = useState<'image' | 'video'>('image');
   const [activeImage, setActiveImage] = useState(product.image || '/hero-candle.jpg');
@@ -60,7 +59,7 @@ function ProductPage() {
     new Set([product.image, ...(Array.isArray(product.gallery) ? product.gallery : [])].filter(Boolean))
   );
 
-  const price = product.price + (size === 100 ? -150 : size === 350 ? 200 : 0);
+  const price = product.price;
 
   return (
     <main className="container page">
@@ -171,32 +170,17 @@ function ProductPage() {
 
           <p className="description">{product.description}</p>
 
-          <p className="option-label">Size</p>
-          <div className="size-options">
-            {[100, 200, 350].map((s) => (
-              <Button
-                size="sm"
-                variant={size === s ? 'default' : 'outline'}
-                aria-pressed={size === s}
-                onClick={() => setSize(s)}
-                key={s}
-              >
-                {s}g
-              </Button>
-            ))}
-          </div>
-
           <p className="option-label">Quantity</p>
           <Quantity value={quantity} onChange={setQuantity} />
 
           <div className="purchase-actions">
-            <Button onClick={() => add(product.id, size, quantity)}>
+            <Button onClick={() => add(product.id, 0, quantity)}>
               Add to Cart
             </Button>
             <Button
               variant="outline"
               onClick={() => {
-                add(product.id, size, quantity);
+                add(product.id, 0, quantity);
                 navigate({ to: '/cart' });
               }}
             >

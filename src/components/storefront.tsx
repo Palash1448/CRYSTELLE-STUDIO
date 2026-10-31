@@ -30,7 +30,6 @@ export function getStoredCart(): CartItem[] {
         (it: any) =>
           it &&
           typeof it.id === 'string' &&
-          typeof it.size === 'number' &&
           typeof it.quantity === 'number' &&
           it.quantity > 0
       );
@@ -183,11 +182,11 @@ export function StoreProvider({children}:{children:ReactNode}){
 
  useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(''),2500);return()=>clearTimeout(timer);},[toast]);
 
- const add = (id: string, size = 200, quantity = 1) => {
+ const add = (id: string, size = 0, quantity = 1) => {
    setCart((current) => {
-     const item = current.find((p) => p.id === id && p.size === size);
+     const item = current.find((p) => p.id === id);
      const next = item
-       ? current.map((p) => (p === item ? { ...p, quantity: p.quantity + quantity } : p))
+       ? current.map((p) => (p.id === id ? { ...p, quantity: p.quantity + quantity } : p))
        : [...current, { id, size, quantity }];
      saveStoredCart(next);
      return next;
@@ -200,8 +199,8 @@ export function StoreProvider({children}:{children:ReactNode}){
    setCart((c) => {
      const next =
        quantity < 1
-         ? c.filter((p) => p.id !== id || p.size !== size)
-         : c.map((p) => (p.id === id && p.size === size ? { ...p, quantity } : p));
+         ? c.filter((p) => p.id !== id)
+         : c.map((p) => (p.id === id ? { ...p, quantity } : p));
      saveStoredCart(next);
      return next;
    });

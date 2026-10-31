@@ -60,8 +60,7 @@ export function CartDrawer() {
   const subtotal = cart.reduce((total, item) => {
     const p = allProducts.find((prod) => prod.id === item.id);
     if (!p) return total;
-    const priceDelta = item.size === 100 ? -150 : item.size === 350 ? 200 : 0;
-    return total + (p.price + priceDelta) * item.quantity;
+    return total + p.price * item.quantity;
   }, 0);
 
   // Prepaid shipping is included in the price (₹0). COD has customizable fee at checkout.
@@ -153,8 +152,7 @@ export function CartDrawer() {
               cart.map((item) => {
                 const prod = allProducts.find((p) => p.id === item.id);
                 if (!prod) return null;
-                const priceDelta = item.size === 100 ? -150 : item.size === 350 ? 200 : 0;
-                const unitPrice = prod.price + priceDelta;
+                const unitPrice = prod.price;
                 const lineTotal = unitPrice * item.quantity;
 
                 return (
@@ -190,7 +188,7 @@ export function CartDrawer() {
                             {prod.name}
                           </Link>
                           <span className="text-[11px] text-[#A67C2E] font-medium">
-                            {prod.type === '1 Set' ? '1 Set' : `${item.size}g Wax`} • {prod.category}
+                            {prod.category}
                           </span>
                         </div>
 
