@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Settings, Sparkles, Save, Store, ShieldCheck, CheckCircle2, Megaphone, Truck } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings, Sparkles, Save, Store, ShieldCheck, CheckCircle2, Megaphone, Truck, Cloud, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,8 +10,24 @@ export function AdminSettings() {
   const [settings, setSettings] = useState(initialStoreSettings);
   const [saved, setSaved] = useState(false);
 
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('crystelle_studio_settings');
+      if (stored) {
+        setSettings({ ...initialStoreSettings, ...JSON.parse(stored) });
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    try {
+      localStorage.setItem('crystelle_studio_settings', JSON.stringify(settings));
+    } catch {
+      // ignore
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -289,6 +305,89 @@ export function AdminSettings() {
               <span className="text-[#F3C77C] font-semibold">Supported Couriers:</span>
               <span className="text-[#EDE8E1]">Delhivery, Xpressbees, Shadowfax</span>
             </div>
+          </div>
+        </div>
+
+        {/* Cloudinary Media Storage & CDN */}
+        <div className="p-6 rounded-xl bg-[#141311] border border-[#262320] space-y-4 shadow-xl">
+          <div className="flex items-center justify-between pb-3 border-b border-[#262320]">
+            <div className="flex items-center gap-2">
+              <Cloud className="w-4 h-4 text-[#D4A359]" />
+              <div>
+                <h3 className="text-xs font-semibold text-[#EDE8E1]">Cloudinary Media Storage & CDN</h3>
+                <p className="text-[11px] text-[#8C847B]">
+                  High-speed CDN, auto-WebP conversion & auto-gravity cropping for product photos & videos
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">
+              Auto Fallback Active
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-[#C8C2BA]">Cloudinary Cloud Name</Label>
+              <Input
+                value={settings.cloudinaryCloudName || ''}
+                onChange={(e) =>
+                  setSettings({ ...settings, cloudinaryCloudName: e.target.value })
+                }
+                placeholder="e6rnpzii"
+                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1] font-mono"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-[#C8C2BA]">API Key</Label>
+              <Input
+                value={settings.cloudinaryApiKey || ''}
+                onChange={(e) =>
+                  setSettings({ ...settings, cloudinaryApiKey: e.target.value })
+                }
+                placeholder="624812375866731"
+                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1] font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-[#C8C2BA]">API Secret</Label>
+              <Input
+                type="password"
+                value={settings.cloudinaryApiSecret || ''}
+                onChange={(e) =>
+                  setSettings({ ...settings, cloudinaryApiSecret: e.target.value })
+                }
+                placeholder="Found in Cloudinary Console > Settings > Access Keys"
+                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1] font-mono"
+              />
+              <span className="text-[10px] text-[#78716C] block">
+                Required for direct signed uploads. Matches your Access Key secret in Cloudinary Console.
+              </span>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-[#C8C2BA]">Unsigned Upload Preset (Recommended)</Label>
+              <Input
+                value={settings.cloudinaryUploadPreset || ''}
+                onChange={(e) =>
+                  setSettings({ ...settings, cloudinaryUploadPreset: e.target.value })
+                }
+                placeholder="e.g. crystelle_preset"
+                className="bg-[#1C1A17] border-[#2E2A27] text-xs text-[#EDE8E1] font-mono"
+              />
+              <span className="text-[10px] text-[#78716C] block">
+                Create in Settings &gt; Upload &gt; Upload presets (Unsigned). Eliminates signature errors.
+              </span>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-[#181614] border border-[#2B2724] text-[11px] text-[#9E978E] flex items-center justify-between">
+            <span>
+              💡 <strong className="text-[#EDE8E1]">Automatic Local Fallback:</strong> If Cloudinary rejects the signature or is unconfigured, uploads automatically save to <code className="text-[#D4A359]">/public/uploads/</code> or store inline, so adding products never fails.
+            </span>
           </div>
         </div>
 

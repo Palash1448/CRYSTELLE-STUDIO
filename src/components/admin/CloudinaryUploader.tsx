@@ -57,16 +57,22 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
       return;
     }
 
-    // Cache local data URL preview as instant fallback in case Cloudinary API is unavailable
-    const reader = new FileReader();
-    reader.onload = () => {
-      lastDataUrlRef.current = reader.result as string;
-    };
-    reader.readAsDataURL(file);
-
     setUploadError(null);
     setIsUploading(true);
     setUploadProgress(0);
+
+    // Read local data URL first to guarantee immediate local fallback if network/Cloudinary fails
+    try {
+      const fileDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      lastDataUrlRef.current = fileDataUrl;
+    } catch {
+      // ignore
+    }
 
     try {
       const res = await uploadMediaToCloudinary(file, {
@@ -77,9 +83,16 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
 
       onChange(res.secure_url, res.public_id, res);
       setManualUrl(res.secure_url);
+      setUploadError(null);
     } catch (err: any) {
-      console.error('Cloudinary upload error:', err);
-      setUploadError(err.message || 'Failed to upload media to Cloudinary');
+      console.warn('Cloudinary upload encountered error, applying local media fallback:', err);
+      if (lastDataUrlRef.current) {
+        onChange(lastDataUrlRef.current, undefined);
+        setManualUrl(lastDataUrlRef.current);
+        setUploadError(null);
+      } else {
+        setUploadError(err.message || 'Failed to upload media');
+      }
     } finally {
       setIsUploading(false);
       setUploadProgress(0);

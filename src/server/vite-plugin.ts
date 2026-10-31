@@ -1,4 +1,6 @@
 import type { Plugin } from 'vite';
+import fs from 'node:fs';
+import path from 'node:path';
 import { createOrder, verifyPaymentSignature } from './razorpay';
 import {
   forwardOrderToShipPrime,
@@ -18,6 +20,29 @@ export function razorpayApiPlugin(): Plugin {
       server.middlewares.use(async (req, res, next) => {
         const fullUrl = req.url || '';
         const url = fullUrl.split('?')[0];
+
+        // Serve dynamically uploaded local assets
+        if (url && url.startsWith('/uploads/')) {
+          const relativePath = url.replace(/^\//, '');
+          const localPath = path.resolve(process.cwd(), 'public', relativePath);
+          if (fs.existsSync(localPath) && fs.statSync(localPath).isFile()) {
+            const ext = path.extname(localPath).toLowerCase();
+            const mimeMap: Record<string, string> = {
+              '.jpg': 'image/jpeg',
+              '.jpeg': 'image/jpeg',
+              '.png': 'image/png',
+              '.webp': 'image/webp',
+              '.gif': 'image/gif',
+              '.mp4': 'video/mp4',
+              '.webm': 'video/webm',
+            };
+            res.statusCode = 200;
+            res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+            fs.createReadStream(localPath).pipe(res);
+            return;
+          }
+        }
 
         if (url === '/sitemap.xml' || url === '/sitemap') {
           const host = req.headers['host'] || 'localhost:3000';

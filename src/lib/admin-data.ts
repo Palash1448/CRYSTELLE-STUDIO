@@ -314,6 +314,10 @@ export interface StoreSettings {
   shipprimePickupCity?: string;
   shipprimePickupState?: string;
   shipprimePickupPincode?: string;
+  cloudinaryCloudName?: string;
+  cloudinaryApiKey?: string;
+  cloudinaryApiSecret?: string;
+  cloudinaryUploadPreset?: string;
 }
 
 export const initialStoreSettings: StoreSettings = {
@@ -336,4 +340,8 @@ export const initialStoreSettings: StoreSettings = {
   shipprimePickupCity: 'Gurgaon',
   shipprimePickupState: 'Haryana',
   shipprimePickupPincode: '122002',
+  cloudinaryCloudName: 'e6rnpzii',
+  cloudinaryApiKey: '624812375866731',
+  cloudinaryApiSecret: 'irXoLblOWNynTZ4Ti2bhD2aprtA',
+  cloudinaryUploadPreset: '',
 };
