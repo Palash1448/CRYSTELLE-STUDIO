@@ -1,4 +1,4 @@
-import {createContext, useContext, useState, useEffect, type ReactNode} from 'react';
+import {createContext, useContext, useState, useEffect, useRef, type ReactNode} from 'react';
 import {Link, useNavigate} from '@tanstack/react-router';
 import {Flame, Search, UserRound, ShoppingCart, Menu, X, Heart, ArrowRight, Minus, Plus, BadgeCheck, Leaf, PackageCheck, House, LockKeyhole, Flower2, UserCheck, Play} from 'lucide-react';
 import {Button} from '@/components/ui/button';
@@ -15,6 +15,60 @@ import {
 } from '@/lib/firestore-service';
 
 export type CartItem = {id:string;size:number;quantity:number};
+
+const CART_STORAGE_KEY = 'crystelle_shopping_cart';
+const FAVORITES_STORAGE_KEY = 'crystelle_favorites';
+
+export function getStoredCart(): CartItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY) || localStorage.getItem('crystelle_cart');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter(
+        (it: any) =>
+          it &&
+          typeof it.id === 'string' &&
+          typeof it.size === 'number' &&
+          typeof it.quantity === 'number' &&
+          it.quantity > 0
+      );
+    }
+  } catch {}
+  return [];
+}
+
+export function saveStoredCart(cartItems: CartItem[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (cartItems.length > 0) {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
+    } else {
+      localStorage.removeItem(CART_STORAGE_KEY);
+      localStorage.removeItem('crystelle_cart');
+    }
+  } catch {}
+}
+
+export function getStoredFavorites(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredFavorites(favs: string[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favs));
+  } catch {}
+}
 type Store = {
   cart: CartItem[];
   isCartOpen: boolean;
@@ -38,16 +92,51 @@ type Store = {
 const StoreContext = createContext<Store|null>(null);
 export function useStore(){const store=useContext(StoreContext);if(!store)throw new Error('Store is unavailable');return store;}
 export function StoreProvider({children}:{children:ReactNode}){
- const [cart,setCart]=useState<CartItem[]>([]);
+ const [cart,setCart]=useState<CartItem[]>(() => getStoredCart());
  const [isCartOpen,setIsCartOpen]=useState(false);
- const [favorites,setFavorites]=useState<string[]>([]);
+ const [favorites,setFavorites]=useState<string[]>(() => getStoredFavorites());
  const [toast,setToast]=useState('');
  const [noticeText,setNotice]=useState('');
  const [user,setUser]=useState<UserProfile|null>(null);
  const [storeProducts, setStoreProducts] = useState<Product[]>(() => getStoredProducts());
+ const hasHydratedRef = useRef(false);
 
  const openCart = () => setIsCartOpen(true);
  const closeCart = () => setIsCartOpen(false);
+
+ useEffect(() => {
+   const storedCart = getStoredCart();
+   if (storedCart.length > 0) {
+     setCart(storedCart);
+   }
+   const storedFavs = getStoredFavorites();
+   if (storedFavs.length > 0) {
+     setFavorites(storedFavs);
+   }
+   hasHydratedRef.current = true;
+
+   const handleStorage = (e: StorageEvent) => {
+     if (e.key === CART_STORAGE_KEY) {
+       setCart(getStoredCart());
+     }
+     if (e.key === FAVORITES_STORAGE_KEY) {
+       setFavorites(getStoredFavorites());
+     }
+   };
+
+   window.addEventListener('storage', handleStorage);
+   return () => window.removeEventListener('storage', handleStorage);
+ }, []);
+
+ useEffect(() => {
+   if (!hasHydratedRef.current) return;
+   saveStoredCart(cart);
+ }, [cart]);
+
+ useEffect(() => {
+   if (!hasHydratedRef.current) return;
+   saveStoredFavorites(favorites);
+ }, [favorites]);
 
  useEffect(()=>{
    const stored = getStoredUser();
@@ -94,10 +183,34 @@ export function StoreProvider({children}:{children:ReactNode}){
 
  useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(''),2500);return()=>clearTimeout(timer);},[toast]);
 
- const add=(id:string,size=200,quantity=1)=>{setCart(current=>{const item=current.find(p=>p.id===id&&p.size===size);return item?current.map(p=>p===item?{...p,quantity:p.quantity+quantity}:p):[...current,{id,size,quantity}];});setToast('Added to your cart');setIsCartOpen(true);};
- const change=(id:string,size:number,quantity:number)=>setCart(c=>quantity<1?c.filter(p=>p.id!==id||p.size!==size):c.map(p=>p.id===id&&p.size===size?{...p,quantity}:p));
+ const add = (id: string, size = 200, quantity = 1) => {
+   setCart((current) => {
+     const item = current.find((p) => p.id === id && p.size === size);
+     const next = item
+       ? current.map((p) => (p === item ? { ...p, quantity: p.quantity + quantity } : p))
+       : [...current, { id, size, quantity }];
+     saveStoredCart(next);
+     return next;
+   });
+   setToast('Added to your cart');
+   setIsCartOpen(true);
+ };
 
- const clearCart = () => setCart([]);
+ const change = (id: string, size: number, quantity: number) => {
+   setCart((c) => {
+     const next =
+       quantity < 1
+         ? c.filter((p) => p.id !== id || p.size !== size)
+         : c.map((p) => (p.id === id && p.size === size ? { ...p, quantity } : p));
+     saveStoredCart(next);
+     return next;
+   });
+ };
+
+ const clearCart = () => {
+   saveStoredCart([]);
+   setCart([]);
+ };
 
  const login = (email: string, fullName?: string, existingProfile?: UserProfile) => {
    const loggedUser = existingProfile || createDefaultUser(email, fullName);
@@ -169,6 +282,7 @@ export function StoreProvider({children}:{children:ReactNode}){
 
      return updated;
    });
+   saveStoredCart([]);
    setCart([]);
  };
 
@@ -207,7 +321,12 @@ export function StoreProvider({children}:{children:ReactNode}){
    add,
    change,
    clearCart,
-   favorite:id=>setFavorites(f=>f.includes(id)?f.filter(x=>x!==id):[...f,id]),
+   favorite: (id) =>
+     setFavorites((f) => {
+       const next = f.includes(id) ? f.filter((x) => x !== id) : [...f, id];
+       saveStoredFavorites(next);
+       return next;
+     }),
    notify:setToast,
    notice:setNotice,
    user,
