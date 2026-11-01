@@ -59,7 +59,7 @@ function Index() {
   return (
     <main>
       {banner.isActive && (
-        <section className="hero">
+        <section className="hero" aria-label="Crystelle Studio Handcrafted Candles Spotlight">
           <img
             src={banner.imageUrl || hero}
             alt={(banner.title || 'Crystelle Studio Handcrafted Candles').replace(/\n/g, ' ')}
@@ -162,11 +162,11 @@ function Index() {
             </p>
           </div>
 
-          <div className="max-w-3xl mx-auto divide-y divide-[#EAE4DC] bg-[#FAF8F5]/80 rounded-3xl p-6 sm:p-8 border border-[#EAE4DC]">
+          <div className="max-w-3xl mx-auto divide-y divide-[#EAE4DC] bg-[#FAF8F5]/80 rounded-2xl sm:rounded-3xl p-4 sm:p-8 border border-[#EAE4DC]">
             {HOME_FAQS.map((faq, i) => (
               <details key={i} className="group py-4 first:pt-0 last:pb-0">
                 <summary className="flex justify-between items-center cursor-pointer list-none font-medium text-[#1C1917] group-open:text-[#A67C2E] transition-colors">
-                  <span className="text-base pr-4">{faq.question}</span>
+                  <span className="text-sm sm:text-base pr-3 sm:pr-4">{faq.question}</span>
                   <span className="text-[#A67C2E] font-serif text-xl group-open:rotate-45 transition-transform">
                     +
                   </span>

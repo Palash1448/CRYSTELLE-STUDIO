@@ -1,32 +1,86 @@
-import { createFileRoute, Link, notFound, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
-import { Play, Sparkles, Film, Image as ImageIcon } from 'lucide-react';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { useState, useEffect } from 'react';
+import { Play, Sparkles, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { pageHead, money, hero, getStoredProducts } from '@/lib/store-data';
+import { money, getStoredProducts, type Product } from '@/lib/store-data';
 import { seoHead } from '@/lib/seo';
-import { fetchFirestoreProducts } from '@/lib/firestore-service';
+import { fetchFirestoreProducts, fetchFirestoreProductById } from '@/lib/firestore-service';
 import { Quantity, DetailBenefits, useStore, ProductCard } from '@/components/storefront';
 import { CldImage } from '@/lib/cloudinary';
 
+/**
+ * Robust helper to match a product in a collection by exact id, lowercase id,
+ * URL-decoded id, sanitized alphanumeric slug, or slugified product name.
+ */
+function findProductInList(list: any[] | undefined | null, slug: string | undefined): Product | null {
+  if (!Array.isArray(list) || !slug) return null;
+  const rawSlug = String(slug).trim();
+  const decodedSlug = decodeURIComponent(rawSlug).trim();
+  const cleanLower = rawSlug.toLowerCase();
+  const decodedLower = decodedSlug.toLowerCase();
+  const normSlug = cleanLower.replace(/[^a-z0-9]/g, '');
+
+  return (
+    list.find((p) => {
+      if (!p) return false;
+      const pId = String(p.id || '').trim();
+      if (pId === rawSlug || pId === decodedSlug) return true;
+
+      const pIdLower = pId.toLowerCase();
+      if (pIdLower === cleanLower || pIdLower === decodedLower) return true;
+      if (pIdLower.replace(/[^a-z0-9]/g, '') === normSlug) return true;
+
+      if (p.name) {
+        const nameSlug = String(p.name)
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+        if (
+          nameSlug === cleanLower ||
+          nameSlug === decodedLower ||
+          nameSlug.replace(/-/g, '') === normSlug
+        ) {
+          return true;
+        }
+      }
+      return false;
+    }) || null
+  );
+}
+
 export const Route = createFileRoute('/product/$slug')({
   loader: async ({ params }) => {
-    let all = getStoredProducts();
-    let p = all.find((prod) => prod.id === params.slug);
+    const slug = params.slug;
+
+    // 1. Check local / stored products
+    let p = findProductInList(getStoredProducts(), slug);
+
+    // 2. If not found, try direct Firestore document lookup
+    if (!p) {
+      try {
+        p = await fetchFirestoreProductById(slug);
+      } catch {}
+    }
+
+    // 3. Fallback: search across all Firestore products
     if (!p) {
       try {
         const remote = await fetchFirestoreProducts();
-        p = remote.find((prod) => prod.id === params.slug);
+        p = findProductInList(remote, slug);
       } catch {}
     }
-    if (!p) throw notFound();
-    return p;
+
+    // Return product if found, or null without throwing notFound()
+    // so the client component hydrates seamlessly and can resolve from browser storage
+    return p || null;
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) {
       return seoHead({
-        title: 'Candle Not Found',
-        description: 'Explore the Crystelle Studio collection of handcrafted candles.',
-        noindex: true,
+        title: 'Handcrafted Scented Candle — Crystelle Studio',
+        description: 'Explore the Crystelle Studio collection of handcrafted artisanal soy wax candles.',
+        path: `/product/${params.slug}`,
       });
     }
     return seoHead({
@@ -41,25 +95,151 @@ export const Route = createFileRoute('/product/$slug')({
         { name: loaderData.category || 'Handcrafted Candles', path: `/shop?category=${encodeURIComponent(loaderData.category || '')}` },
         { name: loaderData.name, path: `/product/${params.slug}` },
       ],
-      keywords: `${loaderData.name}, ${loaderData.category}, ${loaderData.fragrance} candle, handcrafted candles India, soy wax candle`,
+      keywords: `${loaderData.name}, ${loaderData.category}, ${loaderData.fragrance || ''} candle, handcrafted candles India, soy wax candle`,
     });
   },
   component: ProductPage,
 });
 
 function ProductPage() {
-  const product = Route.useLoaderData();
+  const loaderProduct = Route.useLoaderData();
+  const { slug } = Route.useParams();
+  const { products: storeProducts, add } = useStore();
+  const navigate = useNavigate();
+
+  // Initialize product from loader, store context, or localStorage
+  const [product, setProduct] = useState<any>(() => {
+    if (loaderProduct) return loaderProduct;
+    const fromStore = findProductInList(storeProducts, slug);
+    if (fromStore) return fromStore;
+    const fromLocal = findProductInList(getStoredProducts(), slug);
+    return fromLocal || null;
+  });
+
+  const [isLoading, setIsLoading] = useState(() => !loaderProduct && !product);
   const [quantity, setQuantity] = useState(1);
   const [selectedMedia, setSelectedMedia] = useState<'image' | 'video'>('image');
-  const [activeImage, setActiveImage] = useState(product.image || '/hero-candle.jpg');
-  const { add } = useStore();
-  const navigate = useNavigate();
+  const [activeImage, setActiveImage] = useState<string>(
+    () => product?.image || '/hero-candle.jpg'
+  );
+
+  // Sync activeImage whenever product is loaded or changes
+  useEffect(() => {
+    if (product?.image && (!activeImage || activeImage === '/hero-candle.jpg')) {
+      setActiveImage(product.image);
+    }
+  }, [product, activeImage]);
+
+  // Attempt client-side resolution if product was not resolved during SSR
+  useEffect(() => {
+    if (product) {
+      setIsLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoading(true);
+
+    // 1. Check current store context
+    let found = findProductInList(storeProducts, slug);
+
+    // 2. Check localStorage
+    if (!found) {
+      found = findProductInList(getStoredProducts(), slug);
+    }
+
+    if (found) {
+      if (isMounted) {
+        setProduct(found);
+        setActiveImage(found.image || '/hero-candle.jpg');
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // 3. Fetch from Firestore by ID directly
+    fetchFirestoreProductById(slug)
+      .then((remote) => {
+        if (!isMounted) return;
+        if (remote) {
+          setProduct(remote);
+          setActiveImage(remote.image || '/hero-candle.jpg');
+          setIsLoading(false);
+        } else {
+          // 4. Fallback: query full Firestore collection
+          return fetchFirestoreProducts().then((allRemote) => {
+            if (!isMounted) return;
+            const match = findProductInList(allRemote, slug);
+            if (match) {
+              setProduct(match);
+              setActiveImage(match.image || '/hero-candle.jpg');
+            }
+            setIsLoading(false);
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn('Client product lookup error:', err);
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [slug, storeProducts, product]);
+
+  // While checking / loading
+  if (isLoading && !product) {
+    return (
+      <main className="container page min-h-[60vh] flex flex-col items-center justify-center py-24 text-center">
+        <div className="w-10 h-10 rounded-full border-2 border-[#C59A44] border-t-transparent animate-spin mb-4" />
+        <p className="text-sm font-medium tracking-wider text-[#78716C] uppercase">
+          Loading Handcrafted Candle...
+        </p>
+      </main>
+    );
+  }
+
+  // If exhausted and candle truly does not exist
+  if (!product) {
+    return (
+      <main className="container page min-h-[60vh] flex flex-col items-center justify-center py-20 text-center">
+        <div className="max-w-md mx-auto">
+          <span className="text-4xl mb-4 inline-block">🕯️</span>
+          <h1 className="text-2xl font-serif font-bold text-[#1C1917] mb-2">Candle Not Found</h1>
+          <p className="text-sm text-[#78716C] mb-6">
+            The artisanal candle you are looking for may have been retired or moved to a new collection.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Button asChild className="rounded-full px-6 py-2.5">
+              <Link to="/shop">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Browse All Candles
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-full px-6 py-2.5">
+              <Link to="/">Back to Home</Link>
+            </Button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   const allImages = Array.from(
     new Set([product.image, ...(Array.isArray(product.gallery) ? product.gallery : [])].filter(Boolean))
   );
 
-  const price = product.price;
+  const price = product.price || 0;
+  const currentImage = activeImage || product.image || '/hero-candle.jpg';
+
+  // Related products from store or localStorage
+  const availableProducts = storeProducts && storeProducts.length > 0 ? storeProducts : getStoredProducts();
+  const related = availableProducts
+    .filter((p) => p && p.id !== product.id)
+    .slice(0, 4);
 
   return (
     <main className="container page">
@@ -67,7 +247,7 @@ function ProductPage() {
         <Link to="/">Home</Link>
         <span>›</span>
         <Link to="/shop" search={{ category: product.category }}>
-          {product.category}
+          {product.category || 'Candles'}
         </Link>
         <span>›</span>
         <span>{product.name}</span>
@@ -88,7 +268,7 @@ function ProductPage() {
             ) : (
               <CldImage
                 className="main-product-image w-full h-full object-cover"
-                src={activeImage}
+                src={currentImage}
                 alt={product.name + ' candle'}
                 width={700}
                 height={700}
@@ -109,7 +289,7 @@ function ProductPage() {
                 key={`${imgUrl}-${index}`}
                 variant="outline"
                 className={`thumbnail relative p-0 overflow-hidden rounded-xl border shrink-0 transition-all ${
-                  selectedMedia === 'image' && activeImage === imgUrl
+                  selectedMedia === 'image' && currentImage === imgUrl
                     ? 'border-[#C59A44] ring-2 ring-[#C59A44]/30'
                     : 'border-[#EAE4DC] hover:border-[#C59A44]/50'
                 }`}
@@ -200,7 +380,7 @@ function ProductPage() {
 
           <details>
             <summary>Fragrance Notes</summary>
-            <p>{product.notes}</p>
+            <p>{product.notes || 'Natural botanical extracts with delicate fragrance oils.'}</p>
           </details>
 
           <details>
@@ -214,19 +394,18 @@ function ProductPage() {
       </div>
 
       {/* Related Products */}
-      <section className="section">
-        <div className="section-heading">
-          <h2>You May Also Love</h2>
-        </div>
-        <div className="product-grid">
-          {getStoredProducts()
-            .filter((p) => p.id !== product.id)
-            .slice(0, 4)
-            .map((p) => (
+      {related.length > 0 && (
+        <section className="section">
+          <div className="section-heading">
+            <h2>You May Also Love</h2>
+          </div>
+          <div className="product-grid">
+            {related.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
     </main>
   );
 }

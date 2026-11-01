@@ -80,7 +80,7 @@ export function CartDrawer() {
       />
 
       {/* Side-sliding Drawer Container */}
-      <div className="fixed inset-y-0 right-0 flex max-w-full pl-8 z-50">
+      <div className="fixed inset-y-0 right-0 flex max-w-full pl-3 sm:pl-8 z-50">
         <aside className="w-screen max-w-md bg-[#FAF8F5] border-l border-[#EAE4DC] flex flex-col h-full shadow-2xl animate-in slide-in-from-right duration-300 font-sans">
           {/* Header */}
           <div className="p-4 sm:p-5 border-b border-[#EAE4DC] bg-white flex items-center justify-between shrink-0">

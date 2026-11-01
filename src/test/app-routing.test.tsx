@@ -34,4 +34,15 @@ describe("App routing", () => {
     expect(router.matchRoutes("/contact").at(-1)?.routeId).toBe("/contact");
     expect(router.matchRoutes("/checkout").at(-1)?.routeId).toBe("/checkout");
   });
+
+  it("matches /product/$slug and all main storefront routes without 404", () => {
+    const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
+
+    expect(router.matchRoutes("/product/strawberry-iced-latte-candle-7277").at(-1)?.routeId).toBe("/product/$slug");
+    expect(router.matchRoutes("/shop").at(-1)?.routeId).toBe("/shop");
+    expect(router.matchRoutes("/collections").at(-1)?.routeId).toBe("/collections");
+    expect(router.matchRoutes("/cart").at(-1)?.routeId).toBe("/cart");
+    expect(router.matchRoutes("/about").at(-1)?.routeId).toBe("/about");
+    expect(router.matchRoutes("/admin").at(-1)?.routeId).toBe("/admin");
+  });
 });

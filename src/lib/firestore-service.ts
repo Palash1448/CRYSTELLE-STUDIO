@@ -402,6 +402,70 @@ export async function fetchFirestoreProducts(): Promise<any[]> {
 }
 
 /**
+ * Fetch a single product from Firestore by ID or slug with robust fallback matching
+ */
+export async function fetchFirestoreProductById(productId: string): Promise<any | null> {
+  if (!productId) return null;
+  const cleanId = String(productId).trim();
+  const DUMMY_PRODUCT_IDS = new Set([
+    'lavender-bliss',
+    'vanilla-dream',
+    'rose-petal',
+    'citrus-fresh',
+    'sandalwood-serenity',
+    'candle-gift-set',
+    'candle-care-kit',
+  ]);
+
+  if (DUMMY_PRODUCT_IDS.has(cleanId)) return null;
+
+  try {
+    // 1. Direct document lookup (fastest O(1))
+    const docRef = doc(db, 'products', cleanId);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (!DUMMY_PRODUCT_IDS.has(snap.id)) {
+        return { id: snap.id, ...data };
+      }
+    }
+  } catch (directErr) {
+    console.warn('Firestore direct product getDoc notice:', directErr);
+  }
+
+  // 2. Resilient fallback query across collection
+  try {
+    const all = await fetchFirestoreProducts();
+    const cleanLower = cleanId.toLowerCase();
+    const cleanNorm = cleanLower.replace(/[^a-z0-9]/g, '');
+
+    const found = all.find((p) => {
+      if (!p) return false;
+      const pId = String(p.id || '').trim();
+      if (pId === cleanId) return true;
+      if (pId.toLowerCase() === cleanLower) return true;
+      if (pId.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanNorm) return true;
+
+      // Check if product name matches slug
+      if (p.name) {
+        const nameSlug = String(p.name)
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+        if (nameSlug === cleanLower || nameSlug.replace(/-/g, '') === cleanNorm) return true;
+      }
+      return false;
+    });
+
+    return found || null;
+  } catch (err) {
+    console.warn('Firestore fetchFirestoreProductById failed:', err);
+    return null;
+  }
+}
+
+/**
  * Save or update a product in Firestore collection 'products'
  */
 export async function saveProductToFirestore(product: any): Promise<void> {

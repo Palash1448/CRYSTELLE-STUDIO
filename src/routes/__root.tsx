@@ -5,6 +5,7 @@ import {
   createRootRouteWithContext,
   useRouter,
   useRouterState,
+  useNavigate,
   HeadContent,
   Scripts,
   type ErrorComponentProps,
@@ -130,11 +131,23 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
   const isAdmin = pathname.startsWith('/admin');
 
   useEffect(() => {
     trackFirebaseRoute(pathname);
-  }, [pathname]);
+    if (typeof window !== 'undefined') {
+      try {
+        const spaTarget = sessionStorage.getItem('crystelle_spa_path');
+        if (spaTarget) {
+          sessionStorage.removeItem('crystelle_spa_path');
+          if (spaTarget !== pathname && spaTarget !== '/') {
+            navigate({ to: spaTarget });
+          }
+        }
+      } catch {}
+    }
+  }, [pathname, navigate]);
 
   return (
     <QueryClientProvider client={queryClient}>
