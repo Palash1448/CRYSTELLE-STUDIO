@@ -7,6 +7,10 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { razorpayApiPlugin } from "./src/server/vite-plugin";
 
+const nitroPreset =
+  process.env["NITRO_PRESET"] ||
+  (process.env["VERCEL"] ? "vercel" : undefined);
+
 export default defineConfig({
   plugins: [razorpayApiPlugin()],
   tanstackStart: {
@@ -14,7 +18,5 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  nitro: {
-    preset: process.env.NITRO_PRESET || (process.env.VERCEL ? "vercel" : undefined),
-  },
+  ...(nitroPreset ? { nitro: { preset: nitroPreset } } : {}),
 });

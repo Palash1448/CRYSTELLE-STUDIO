@@ -167,7 +167,7 @@ function ProductPage() {
           setIsLoading(false);
         } else {
           // 4. Fallback: query full Firestore collection
-          return fetchFirestoreProducts().then((allRemote) => {
+          fetchFirestoreProducts().then((allRemote) => {
             if (!isMounted) return;
             const match = findProductInList(allRemote, slug);
             if (match) {
