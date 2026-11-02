@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Benefits, ProductCard, ArrowRight, useStore } from "@/components/storefront";
 import { hero, ambience, categories, getStoredProducts } from "@/lib/store-data";
-import { getStoredBannerSettings, BannerSettings } from "@/lib/admin-data";
+import { getStoredBannerSettings, saveStoredBannerSettings, BannerSettings } from "@/lib/admin-data";
+import { fetchBannerSettingsFromFirestore } from "@/lib/firestore-service";
 import { seoHead, buildOrganizationSchema, buildWebSiteSchema } from "@/lib/seo";
 
 const HOME_FAQS = [
@@ -47,6 +48,14 @@ function Index() {
   const [banner, setBanner] = useState<BannerSettings>(getStoredBannerSettings);
 
   useEffect(() => {
+    // 1. Fetch live banner from Firestore so updates reflect on the website for all visitors
+    fetchBannerSettingsFromFirestore().then((remote) => {
+      if (remote) {
+        setBanner(remote);
+        saveStoredBannerSettings(remote);
+      }
+    });
+
     const handleUpdate = () => setBanner(getStoredBannerSettings());
     window.addEventListener('storage', handleUpdate);
     window.addEventListener('crystelle_banner_updated', handleUpdate);

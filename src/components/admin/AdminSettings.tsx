@@ -15,6 +15,9 @@ import {
   Layers,
   ArrowRight,
   Eye,
+  EyeOff,
+  Key,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +33,12 @@ import {
   getStoredBannerSettings,
   saveStoredBannerSettings,
 } from '@/lib/admin-data';
+import {
+  saveBannerSettingsToFirestore,
+  fetchBannerSettingsFromFirestore,
+  saveStoreSettingsToFirestore,
+  fetchStoreSettingsFromFirestore,
+} from '@/lib/firestore-service';
 import { CloudinaryUploader } from './CloudinaryUploader';
 import { money } from '@/lib/store-data';
 
@@ -37,18 +46,44 @@ export function AdminSettings() {
   const [settings, setSettings] = useState<StoreSettings>(getStoredStoreSettings);
   const [banner, setBanner] = useState<BannerSettings>(getStoredBannerSettings);
   const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSecret, setShowSecret] = useState(false);
 
   useEffect(() => {
     setSettings(getStoredStoreSettings());
     setBanner(getStoredBannerSettings());
+
+    // Fetch live settings and banner from Firestore
+    fetchBannerSettingsFromFirestore().then((remote) => {
+      if (remote) {
+        setBanner(remote);
+        saveStoredBannerSettings(remote);
+      }
+    });
+
+    fetchStoreSettingsFromFirestore().then((remote) => {
+      if (remote) {
+        setSettings((prev) => ({ ...prev, ...remote }));
+        saveStoredStoreSettings({ ...getStoredStoreSettings(), ...remote });
+      }
+    });
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    saveStoredStoreSettings(settings);
-    saveStoredBannerSettings(banner);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3500);
+    setIsSaving(true);
+    try {
+      saveStoredStoreSettings(settings);
+      saveStoredBannerSettings(banner);
+      await Promise.all([
+        saveBannerSettingsToFirestore(banner),
+        saveStoreSettingsToFirestore(settings),
+      ]);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 4000);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -450,18 +485,116 @@ export function AdminSettings() {
           </div>
         </div>
 
+        {/* ========================================================= */}
+        {/* 5. CLOUDINARY MEDIA & CDN CONFIGURATION                   */}
+        {/* ========================================================= */}
+        <div className="bg-white rounded-2xl border border-[#EAE4DC] p-5 sm:p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between pb-3.5 border-b border-[#EAE4DC]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-700">
+                <Cloud className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold text-[#1C1917] uppercase tracking-wider">
+                  Cloudinary Media & CDN Storage
+                </h3>
+                <p className="text-[11px] text-[#78716C]">
+                  Configure your Cloudinary cloud credentials or unsigned upload preset for direct image & video uploads
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] px-2.5 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-200 font-mono font-medium">
+              Cloud: {settings.cloudinaryCloudName || 'e6rnpzii'}
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 text-xs text-amber-900 space-y-1">
+            <p className="font-semibold flex items-center gap-1.5">
+              <Key className="w-3.5 h-3.5 text-amber-700" />
+              Cloudinary Upload Tip:
+            </p>
+            <p className="text-[11px] text-amber-800 leading-relaxed">
+              To avoid signature mismatches, you can create an <strong>Unsigned Upload Preset</strong> in your Cloudinary Dashboard (<em>Settings → Upload → Upload Presets → Add Preset → Signing mode: Unsigned</em>), then enter its name (e.g. <code>crystelle_preset</code>) below. Unsigned presets upload directly without needing API Secret verification!
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#44403C]">Cloud Name</Label>
+              <Input
+                value={settings.cloudinaryCloudName ?? 'e6rnpzii'}
+                onChange={(e) => setSettings({ ...settings, cloudinaryCloudName: e.target.value })}
+                placeholder="e6rnpzii"
+                className="bg-[#FAF8F5] border-[#EAE4DC] text-xs font-mono text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#44403C]">API Key</Label>
+              <Input
+                value={settings.cloudinaryApiKey ?? '624812375866731'}
+                onChange={(e) => setSettings({ ...settings, cloudinaryApiKey: e.target.value })}
+                placeholder="624812375866731"
+                className="bg-[#FAF8F5] border-[#EAE4DC] text-xs font-mono text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-[#44403C]">API Secret</Label>
+                <button
+                  type="button"
+                  onClick={() => setShowSecret(!showSecret)}
+                  className="text-[11px] text-[#A67C2E] hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  {showSecret ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  {showSecret ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              <Input
+                type={showSecret ? 'text' : 'password'}
+                value={settings.cloudinaryApiSecret ?? ''}
+                onChange={(e) => setSettings({ ...settings, cloudinaryApiSecret: e.target.value })}
+                placeholder="Paste API Secret from Cloudinary Dashboard"
+                className="bg-[#FAF8F5] border-[#EAE4DC] text-xs font-mono text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
+              />
+              <p className="text-[10px] text-[#78716C]">
+                Found in Cloudinary Console → Settings → Access Keys.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#44403C]">
+                Upload Preset (Optional, Unsigned)
+              </Label>
+              <Input
+                value={settings.cloudinaryUploadPreset ?? ''}
+                onChange={(e) => setSettings({ ...settings, cloudinaryUploadPreset: e.target.value })}
+                placeholder="e.g. crystelle_preset or ml_default"
+                className="bg-[#FAF8F5] border-[#EAE4DC] text-xs font-mono text-[#1C1917] h-10 focus-visible:ring-[#C59A44]"
+              />
+              <p className="text-[10px] text-[#78716C]">
+                Enables signature-free direct uploads directly from the browser.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Submit Actions */}
         <div className="flex items-center justify-end gap-3 pt-2">
           {saved && (
             <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> All updates successfully saved!
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Changes successfully saved and synced to live website!
             </span>
           )}
           <Button
             type="submit"
+            disabled={isSaving}
             className="bg-[#C59A44] hover:bg-[#B58934] text-white font-semibold text-xs px-7 h-11 rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2"
           >
-            <Save className="w-4 h-4" /> Save Store & Banner Settings
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {isSaving ? 'Saving...' : 'Save Store & Banner Settings'}
           </Button>
         </div>
       </form>

@@ -3,6 +3,7 @@ import { Cloudinary } from '@cloudinary/url-gen';
 import { auto, fill, scale } from '@cloudinary/url-gen/actions/resize';
 import { autoGravity } from '@cloudinary/url-gen/qualifiers/gravity';
 import { AdvancedImage } from '@cloudinary/react';
+import { getStoredStoreSettings } from '@/lib/admin-data';
 
 export const CLOUDINARY_CLOUD_NAME =
   (typeof import.meta !== 'undefined' && import.meta.env?.['VITE_CLOUDINARY_CLOUD_NAME']) ||
@@ -196,6 +197,59 @@ function performXhrUpload(
 }
 
 /**
+ * Client-side image compressor:
+ * Converts large camera photos (5MB - 12MB) into lightweight, high-definition
+ * WebP / JPEG images (~80KB - 160KB) to ensure rapid loading and safe storage.
+ */
+export function compressImage(file: File | Blob, maxWidth = 1600, quality = 0.82): Promise<string> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !(file instanceof File || file instanceof Blob) || (file.type && !file.type.startsWith('image/'))) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        const webp = canvas.toDataURL('image/webp', quality);
+        if (webp && webp.startsWith('data:image/webp')) {
+          resolve(webp);
+          return;
+        }
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      }
+    };
+    img.onerror = () => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+    };
+    img.src = url;
+  });
+}
+
+/**
  * Direct signed/unsigned upload of Photos or Videos to Cloudinary with real-time upload progress
  */
 export async function uploadMediaToCloudinary(
@@ -207,11 +261,13 @@ export async function uploadMediaToCloudinary(
     onProgress?: (percent: number) => void;
   }
 ): Promise<UploadResult> {
+  const storeSettings = typeof window !== 'undefined' ? getStoredStoreSettings() : undefined;
   const folder = options?.folder || 'crystelle_studio/products';
   const resourceType = options?.resourceType || 'auto';
+  const cloudName = storeSettings?.cloudinaryCloudName || CLOUDINARY_CLOUD_NAME;
   const envPreset =
     (typeof import.meta !== 'undefined' && import.meta.env?.['VITE_CLOUDINARY_UPLOAD_PRESET']) || '';
-  const uploadPreset = options?.uploadPreset || envPreset;
+  const uploadPreset = options?.uploadPreset || storeSettings?.cloudinaryUploadPreset || envPreset;
 
   // Determine resourceType based on file MIME if auto
   let targetType = resourceType;
@@ -227,7 +283,7 @@ export async function uploadMediaToCloudinary(
       formData.append('upload_preset', uploadPreset);
       if (folder) formData.append('folder', folder);
 
-      const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${targetType}/upload`;
+      const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${targetType}/upload`;
       return await performXhrUpload(uploadUrl, formData, targetType, options?.onProgress);
     } catch (presetErr) {
       console.warn('Unsigned preset upload attempt failed, falling back:', presetErr);
@@ -239,7 +295,13 @@ export async function uploadMediaToCloudinary(
     const signRes = await fetch('/api/cloudinary/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ folder }),
+      body: JSON.stringify({
+        folder,
+        cloudName,
+        apiKey: storeSettings?.cloudinaryApiKey,
+        apiSecret: storeSettings?.cloudinaryApiSecret,
+        uploadPreset,
+      }),
     });
 
     if (signRes.ok) {
@@ -249,9 +311,11 @@ export async function uploadMediaToCloudinary(
         timestamp,
         signature,
         signatureSha256,
-        cloudName,
+        cloudName: targetCloudName,
         uploadPreset: returnedPreset,
       } = signData;
+
+      const activeCloud = targetCloudName || cloudName;
 
       // If server returned an upload preset, try that first
       if (returnedPreset && !uploadPreset) {
@@ -261,14 +325,14 @@ export async function uploadMediaToCloudinary(
           formData.append('upload_preset', returnedPreset);
           if (folder) formData.append('folder', folder);
 
-          const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${targetType}/upload`;
+          const uploadUrl = `https://api.cloudinary.com/v1_1/${activeCloud}/${targetType}/upload`;
           return await performXhrUpload(uploadUrl, formData, targetType, options?.onProgress);
         } catch (presetErr) {
           console.warn('Preset upload attempt failed, falling back to signature:', presetErr);
         }
       }
 
-      const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${targetType}/upload`;
+      const uploadUrl = `https://api.cloudinary.com/v1_1/${activeCloud}/${targetType}/upload`;
 
       // Try signed upload with primary signature
       try {
@@ -307,6 +371,9 @@ export async function uploadMediaToCloudinary(
   let fileData: string;
   if (typeof file === 'string') {
     fileData = file;
+  } else if (file instanceof File && file.type.startsWith('image/')) {
+    // Compress before sending base64 to server proxy
+    fileData = await compressImage(file);
   } else {
     fileData = await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -324,6 +391,9 @@ export async function uploadMediaToCloudinary(
       folder,
       resourceType,
       uploadPreset,
+      cloudName,
+      apiKey: storeSettings?.cloudinaryApiKey,
+      apiSecret: storeSettings?.cloudinaryApiSecret,
     }),
   });
 

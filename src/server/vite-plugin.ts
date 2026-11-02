@@ -210,7 +210,7 @@ function createApiMiddleware() {
                 try {
                   const body = JSON.parse(bodyStr || '{}');
                   if (body.folder) folder = body.folder;
-                  const signData = getUploadSignature(folder);
+                  const signData = getUploadSignature(folder, body);
                   res.statusCode = 200;
                   res.setHeader('Content-Type', 'application/json');
                   res.end(JSON.stringify(signData));

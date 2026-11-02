@@ -14,7 +14,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { StudioOrder, StudioCustomer, StudioPromoCode } from './admin-data';
+import { StudioOrder, StudioCustomer, StudioPromoCode, BannerSettings, StoreSettings } from './admin-data';
 import { type Order, type UserProfile } from './auth';
 
 // ==========================================
@@ -536,4 +536,81 @@ export async function deleteFirestorePromo(promoId: string): Promise<void> {
     console.warn('Firestore: deleteFirestorePromo failed:', error);
   }
 }
+
+// ==========================================
+// 8. STOREFRONT SETTINGS & HERO BANNER
+// ==========================================
+
+/**
+ * Saves homepage hero banner configuration to Firestore collection 'store_settings', doc 'banner'
+ */
+export async function saveBannerSettingsToFirestore(banner: BannerSettings): Promise<void> {
+  try {
+    const docRef = doc(db, 'store_settings', 'banner');
+    await setDoc(
+      docRef,
+      {
+        ...banner,
+        updatedAt: serverTimestamp(),
+        updatedAtISO: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    console.warn('Firestore: saveBannerSettingsToFirestore failed:', error);
+  }
+}
+
+/**
+ * Loads current live homepage hero banner from Firestore collection 'store_settings', doc 'banner'
+ */
+export async function fetchBannerSettingsFromFirestore(): Promise<BannerSettings | null> {
+  try {
+    const docRef = doc(db, 'store_settings', 'banner');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return snap.data() as BannerSettings;
+    }
+  } catch (error) {
+    console.warn('Firestore: fetchBannerSettingsFromFirestore failed:', error);
+  }
+  return null;
+}
+
+/**
+ * Saves store settings (COD fee, tax rates, announcement bar, Cloudinary config) to Firestore
+ */
+export async function saveStoreSettingsToFirestore(settings: StoreSettings): Promise<void> {
+  try {
+    const docRef = doc(db, 'store_settings', 'config');
+    await setDoc(
+      docRef,
+      {
+        ...settings,
+        updatedAt: serverTimestamp(),
+        updatedAtISO: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    console.warn('Firestore: saveStoreSettingsToFirestore failed:', error);
+  }
+}
+
+/**
+ * Loads store settings from Firestore collection 'store_settings', doc 'config'
+ */
+export async function fetchStoreSettingsFromFirestore(): Promise<StoreSettings | null> {
+  try {
+    const docRef = doc(db, 'store_settings', 'config');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return snap.data() as StoreSettings;
+    }
+  } catch (error) {
+    console.warn('Firestore: fetchStoreSettingsFromFirestore failed:', error);
+  }
+  return null;
+}
+
 

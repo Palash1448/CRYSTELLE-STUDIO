@@ -409,6 +409,10 @@ export function saveStoredBannerSettings(banner: BannerSettings): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem('crystelle_banner_settings', JSON.stringify(banner));
+  } catch (err) {
+    console.warn('localStorage banner quota warning:', err);
+  }
+  try {
     window.dispatchEvent(new Event('crystelle_banner_updated'));
   } catch {}
 }

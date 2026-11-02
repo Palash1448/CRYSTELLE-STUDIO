@@ -11,7 +11,7 @@ import {
   Sparkles,
   Layers,
 } from 'lucide-react';
-import { uploadMediaToCloudinary, CldImage, extractPublicId } from '@/lib/cloudinary';
+import { uploadMediaToCloudinary, CldImage, extractPublicId, compressImage } from '@/lib/cloudinary';
 import { Button } from '@/components/ui/button';
 
 export interface CloudinaryUploaderProps {
@@ -75,16 +75,11 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
     setUploadProgress(0);
     lastDataUrlsRef.current = [];
 
-    // Pre-read all local data URLs for immediate local preview / fallback
+    // Pre-read all local data URLs for immediate preview / compact fallback
     const localDataUrls: string[] = [];
     for (const f of validFiles) {
       try {
-        const dUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(f);
-        });
+        const dUrl = await compressImage(f);
         localDataUrls.push(dUrl);
       } catch {
         // ignore
@@ -120,7 +115,12 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
           if (onMultipleChange) {
             onMultipleChange([fallback]);
           }
-          setUploadError(null);
+          const isSigError = err.message?.toLowerCase().includes('signature') || err.message?.toLowerCase().includes('401');
+          setUploadError(
+            isSigError
+              ? 'Cloudinary Note: Upload completed via local storage. To host directly on Cloudinary CDN, verify your Cloudinary API Secret or configure an Unsigned Upload Preset in Store Settings below.'
+              : err.message || 'Cloudinary upload error, local fallback saved.'
+          );
         } else {
           setUploadError(err.message || 'Failed to upload media');
         }

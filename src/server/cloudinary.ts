@@ -2,25 +2,37 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Helper to load Cloudinary credentials from process.env or fallback to .env file
-function getCloudinaryCredentials() {
+export interface CloudinaryCredentialsOverride {
+  cloudName?: string;
+  apiKey?: string;
+  apiSecret?: string;
+  uploadPreset?: string;
+  signatureAlgorithm?: string;
+}
+
+// Helper to load Cloudinary credentials from overrides, process.env, or fallback to .env file
+function getCloudinaryCredentials(overrides?: CloudinaryCredentialsOverride) {
   let cloudName =
+    overrides?.cloudName?.trim() ||
     process.env['CLOUDINARY_CLOUD_NAME'] ||
     process.env['VITE_CLOUDINARY_CLOUD_NAME'] ||
     'e6rnpzii';
   let apiKey =
+    overrides?.apiKey?.trim() ||
     process.env['CLOUDINARY_API_KEY'] ||
     process.env['VITE_CLOUDINARY_API_KEY'] ||
     '624812375866731';
   let apiSecret =
+    overrides?.apiSecret?.trim() ||
     process.env['CLOUDINARY_API_SECRET'] ||
     'irXoLblOWNynTZ4Ti2bhD2aprtA';
   let uploadPreset =
+    overrides?.uploadPreset?.trim() ||
     process.env['CLOUDINARY_UPLOAD_PRESET'] ||
     process.env['VITE_CLOUDINARY_UPLOAD_PRESET'] ||
     '';
   let signatureAlgorithm =
-    (process.env['CLOUDINARY_SIGNATURE_ALGORITHM'] || 'sha1').toLowerCase();
+    (overrides?.signatureAlgorithm?.trim() || process.env['CLOUDINARY_SIGNATURE_ALGORITHM'] || 'sha1').toLowerCase();
 
   try {
     const envPath = path.resolve(process.cwd(), '.env');
@@ -32,19 +44,19 @@ function getCloudinaryCredentials() {
         const [k, ...rest] = trimmed.split('=');
         const key = k?.trim();
         const val = rest.join('=').trim().replace(/^["']|["']$/g, '');
-        if ((key === 'CLOUDINARY_CLOUD_NAME' || key === 'VITE_CLOUDINARY_CLOUD_NAME') && val) {
+        if ((key === 'CLOUDINARY_CLOUD_NAME' || key === 'VITE_CLOUDINARY_CLOUD_NAME') && val && !overrides?.cloudName) {
           cloudName = val;
         }
-        if ((key === 'CLOUDINARY_API_KEY' || key === 'VITE_CLOUDINARY_API_KEY') && val) {
+        if ((key === 'CLOUDINARY_API_KEY' || key === 'VITE_CLOUDINARY_API_KEY') && val && !overrides?.apiKey) {
           apiKey = val;
         }
-        if (key === 'CLOUDINARY_API_SECRET' && val) {
+        if (key === 'CLOUDINARY_API_SECRET' && val && !overrides?.apiSecret) {
           apiSecret = val;
         }
-        if ((key === 'CLOUDINARY_UPLOAD_PRESET' || key === 'VITE_CLOUDINARY_UPLOAD_PRESET') && val) {
+        if ((key === 'CLOUDINARY_UPLOAD_PRESET' || key === 'VITE_CLOUDINARY_UPLOAD_PRESET') && val && !overrides?.uploadPreset) {
           uploadPreset = val;
         }
-        if (key === 'CLOUDINARY_SIGNATURE_ALGORITHM' && val) {
+        if (key === 'CLOUDINARY_SIGNATURE_ALGORITHM' && val && !overrides?.signatureAlgorithm) {
           signatureAlgorithm = val.toLowerCase();
         }
       }
@@ -67,9 +79,10 @@ function getCloudinaryCredentials() {
  */
 export function generateCloudinarySignature(
   paramsToSign: Record<string, string | number>,
-  algorithm: 'sha1' | 'sha256' = 'sha1'
+  algorithm: 'sha1' | 'sha256' = 'sha1',
+  customSecret?: string
 ) {
-  const { apiSecret } = getCloudinaryCredentials();
+  const secret = customSecret || getCloudinaryCredentials().apiSecret;
 
   // Sort parameter keys alphabetically
   const sortedKeys = Object.keys(paramsToSign).sort();
@@ -79,7 +92,7 @@ export function generateCloudinarySignature(
 
   const signature = crypto
     .createHash(algorithm)
-    .update(serialized + apiSecret)
+    .update(serialized + secret)
     .digest('hex');
 
   return signature;
@@ -88,8 +101,9 @@ export function generateCloudinarySignature(
 /**
  * Returns upload signature & credentials for direct client-to-Cloudinary upload
  */
-export function getUploadSignature(folder = 'crystelle_studio/products') {
-  const { cloudName, apiKey, uploadPreset, signatureAlgorithm } = getCloudinaryCredentials();
+export function getUploadSignature(folder = 'crystelle_studio/products', overrides?: CloudinaryCredentialsOverride) {
+  const creds = getCloudinaryCredentials(overrides);
+  const { cloudName, apiKey, apiSecret, uploadPreset, signatureAlgorithm } = creds;
   const timestamp = Math.floor(Date.now() / 1000);
 
   const paramsToSign = {
@@ -97,8 +111,8 @@ export function getUploadSignature(folder = 'crystelle_studio/products') {
     timestamp,
   };
 
-  const signatureSha1 = generateCloudinarySignature(paramsToSign, 'sha1');
-  const signatureSha256 = generateCloudinarySignature(paramsToSign, 'sha256');
+  const signatureSha1 = generateCloudinarySignature(paramsToSign, 'sha1', apiSecret);
+  const signatureSha256 = generateCloudinarySignature(paramsToSign, 'sha256', apiSecret);
 
   return {
     cloudName,
@@ -197,6 +211,9 @@ export async function uploadToCloudinaryServer(params: {
   folder?: string;
   resourceType?: 'image' | 'video' | 'auto';
   uploadPreset?: string;
+  cloudName?: string;
+  apiKey?: string;
+  apiSecret?: string;
 }): Promise<{ status: number; data: any }> {
   const { file, folder = 'crystelle_studio/products', resourceType = 'auto' } = params;
 
@@ -207,12 +224,14 @@ export async function uploadToCloudinaryServer(params: {
     };
   }
 
+  const creds = getCloudinaryCredentials(params);
   const {
     cloudName,
     apiKey,
+    apiSecret,
     uploadPreset: envPreset,
     signatureAlgorithm,
-  } = getCloudinaryCredentials();
+  } = creds;
   const activePreset = params.uploadPreset || envPreset;
 
   // 1. If an unsigned upload preset is configured, prefer preset upload (avoids signature verification)
@@ -270,7 +289,7 @@ export async function uploadToCloudinaryServer(params: {
   let lastStatus = 500;
 
   for (const algo of algorithms) {
-    const signature = generateCloudinarySignature(paramsToSign, algo);
+    const signature = generateCloudinarySignature(paramsToSign, algo, apiSecret);
 
     try {
       const formData = new FormData();
@@ -360,15 +379,21 @@ export async function handleWebCloudinaryRequest(request: Request): Promise<Resp
   if (url.pathname === '/api/cloudinary/sign' && (request.method === 'GET' || request.method === 'POST')) {
     try {
       let folder = 'crystelle_studio/products';
+      const overrides: CloudinaryCredentialsOverride = {};
+
       if (request.method === 'POST') {
         const body = await request.json().catch(() => ({}));
         if (body.folder) folder = body.folder;
+        if (body.cloudName) overrides.cloudName = body.cloudName;
+        if (body.apiKey) overrides.apiKey = body.apiKey;
+        if (body.apiSecret) overrides.apiSecret = body.apiSecret;
+        if (body.uploadPreset) overrides.uploadPreset = body.uploadPreset;
       } else {
         const fParam = url.searchParams.get('folder');
         if (fParam) folder = fParam;
       }
 
-      const signData = getUploadSignature(folder);
+      const signData = getUploadSignature(folder, overrides);
       return new Response(JSON.stringify(signData), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
