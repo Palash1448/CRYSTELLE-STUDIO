@@ -240,13 +240,13 @@ export function AdminSettings() {
               <span>Live Storefront Preview</span>
             </div>
 
-            <div className="relative rounded-2xl overflow-hidden border border-[#EAE4DC] aspect-21/9 min-h-[220px] sm:min-h-[260px] flex items-center p-6 sm:p-10 shadow-inner group">
+            <div className="relative rounded-2xl overflow-hidden border border-[#EAE4DC] aspect-21/9 min-h-55 sm:min-h-65 flex items-center p-6 sm:p-10 shadow-inner group">
               <img
                 src={banner.imageUrl || '/hero-candle.jpg'}
                 alt="Banner preview"
                 className="absolute inset-0 w-full h-full object-cover group-hover:scale-102 transition-transform duration-700"
               />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-linear-to-r from-black/85 via-black/55 to-transparent pointer-events-none" />
 
               <div className="relative z-10 max-w-lg space-y-2.5 text-white">
                 <span className="inline-block text-[10px] tracking-widest font-semibold uppercase text-[#F3C77C] bg-black/40 backdrop-blur-xs px-2.5 py-0.5 rounded-full border border-[#F3C77C]/30">
