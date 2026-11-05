@@ -34,6 +34,7 @@ import {
   Download,
 } from 'lucide-react';
 import { downloadInvoice } from '@/lib/invoice';
+import { trackPixelInitiateCheckout, trackPixelPurchase } from '@/lib/meta-pixel';
 
 export const Route = createFileRoute('/checkout')({
   head: () =>
@@ -145,6 +146,14 @@ function CheckoutPage() {
   const baseShipping = effectiveShipping;
   const discountAmount = appliedDiscount ? appliedDiscount.amount : 0;
   const finalTotal = Math.max(0, subtotal - discountAmount + effectiveShipping);
+
+  // Track InitiateCheckout in Meta Pixel
+  useEffect(() => {
+    if (cart.length > 0) {
+      const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+      trackPixelInitiateCheckout(finalTotal || subtotal, totalItems);
+    }
+  }, []);
 
   // Apply Coupon
   const handleApplyCoupon = (e: React.FormEvent) => {
@@ -283,6 +292,11 @@ function CheckoutPage() {
         setIsSubmitting(false);
         setPlacedOrder(newOrder);
         setPaymentDetails(null);
+        trackPixelPurchase({
+          orderId: newOrder.id,
+          totalInPaise: newOrder.total,
+          numItems: newOrder.items.reduce((sum, it) => sum + it.quantity, 0),
+        });
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
@@ -410,6 +424,11 @@ function CheckoutPage() {
           orderId: razorpayResponse.razorpay_order_id,
         });
         setPlacedOrder(newOrder);
+        trackPixelPurchase({
+          orderId: newOrder.id,
+          totalInPaise: newOrder.total,
+          numItems: newOrder.items.reduce((sum, it) => sum + it.quantity, 0),
+        });
         setIsSubmitting(false);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       };

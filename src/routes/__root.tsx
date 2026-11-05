@@ -9,13 +9,14 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { StoreProvider, Header, Footer } from "@/components/storefront";
 import { CartDrawer } from "@/components/CartDrawer";
 import { trackFirebaseRoute } from "@/lib/firebase-router";
+import { trackPixelPageView } from "@/lib/meta-pixel";
 
 function NotFoundComponent() {
   return (
@@ -118,6 +119,31 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        {/* Meta Pixel Code */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '1742907886811644');
+fbq('track', 'PageView');`,
+          }}
+        />
+        <noscript>
+          <img
+            height="1"
+            width="1"
+            style={{ display: "none" }}
+            src="https://www.facebook.com/tr?id=1742907886811644&ev=PageView&noscript=1"
+            alt=""
+          />
+        </noscript>
+        {/* End Meta Pixel Code */}
       </head>
       <body>
         {children}
@@ -131,10 +157,21 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isAdmin = pathname.startsWith('/admin');
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
     trackFirebaseRoute(pathname);
-  }, [pathname]);
+
+    // Track SPA route navigation in Meta Pixel (skip initial render since inline script fires initial PageView)
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    if (!isAdmin) {
+      trackPixelPageView();
+    }
+  }, [pathname, isAdmin]);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -7,6 +7,7 @@ import { seoHead } from '@/lib/seo';
 import { fetchFirestoreProducts, fetchFirestoreProductById } from '@/lib/firestore-service';
 import { Quantity, DetailBenefits, useStore, ProductCard } from '@/components/storefront';
 import { CldImage } from '@/lib/cloudinary';
+import { trackPixelViewContent } from '@/lib/meta-pixel';
 
 /**
  * Robust helper to match a product in a collection by exact id, lowercase id,
@@ -129,6 +130,18 @@ function ProductPage() {
       setActiveImage(product.image);
     }
   }, [product, activeImage]);
+
+  // Track product view in Meta Pixel
+  useEffect(() => {
+    if (product) {
+      trackPixelViewContent({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        category: product.category,
+      });
+    }
+  }, [product?.id]);
 
   // Attempt client-side resolution if product was not resolved during SSR
   useEffect(() => {

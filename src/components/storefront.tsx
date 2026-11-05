@@ -13,6 +13,7 @@ import {
   saveCustomerOrderToFirestore,
   fetchFirestoreProducts,
 } from '@/lib/firestore-service';
+import { trackPixelAddToCart } from '@/lib/meta-pixel';
 
 export type CartItem = {id:string;size:number;quantity:number};
 
@@ -193,6 +194,13 @@ export function StoreProvider({children}:{children:ReactNode}){
    });
    setToast('Added to your cart');
    setIsCartOpen(true);
+   const product = (storeProducts && storeProducts.length > 0 ? storeProducts : products).find((p) => p.id === id);
+   trackPixelAddToCart({
+     id,
+     name: product?.name,
+     price: product?.price,
+     quantity,
+   });
  };
 
  const change = (id: string, size: number, quantity: number) => {
