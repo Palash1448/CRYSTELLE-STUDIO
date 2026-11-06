@@ -325,6 +325,15 @@ export function AdminOrders({
                       <span className="block text-[10px] text-[#78716C] font-sans">
                         {order.createdAt}
                       </span>
+                      {order.shipprimeOrderId ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md font-mono mt-0.5">
+                          ShipPrime #{order.shipprimeOrderId}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md font-sans mt-0.5">
+                          ShipPrime Pending
+                        </span>
+                      )}
                     </td>
                     <td className="py-3.5 px-4">
                       <span className="font-medium text-[#1C1917] block">

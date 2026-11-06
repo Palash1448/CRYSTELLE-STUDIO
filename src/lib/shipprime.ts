@@ -212,39 +212,107 @@ export async function createShipPrimeForwardOrder(
   try {
     const proxyRes = await fetch('/api/shipprime/forward', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify(payload),
     });
 
-    if (proxyRes.ok) {
-      const data = await proxyRes.json();
-      return data as ShipPrimeForwardResponse;
-    }
+    const data = await proxyRes.json();
+    return data as ShipPrimeForwardResponse;
   } catch (err) {
     console.warn('ShipPrime: Proxy forward route unavailable, trying direct call:', err);
   }
 
-  // 2. Direct fallback
-  const directRes = await fetch('https://api.shipprime.live/v1/forward', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const resText = await directRes.text();
+  // 2. Direct fallback (e.g. server-side or non-browser environments)
   try {
-    return JSON.parse(resText) as ShipPrimeForwardResponse;
-  } catch {
+    const directRes = await fetch('https://api.shipprime.live/v1/forward', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const resText = await directRes.text();
+    try {
+      return JSON.parse(resText) as ShipPrimeForwardResponse;
+    } catch {
+      return {
+        awb: '',
+        courier: '',
+        labelUrl: '',
+        orderId: 0,
+        status: 'FAILED',
+        message: resText || 'Failed to parse ShipPrime response',
+      };
+    }
+  } catch (directErr: any) {
     return {
       awb: '',
       courier: '',
       labelUrl: '',
       orderId: 0,
       status: 'FAILED',
-      message: resText || 'Failed to parse ShipPrime response',
+      message: directErr?.message || 'ShipPrime connection failed',
+    };
+  }
+}
+
+/**
+ * Automatically creates and books forward shipment with ShipPrime upon customer order checkout.
+ * Works seamlessly for both COD and Prepaid orders.
+ */
+export async function autoBookShipPrimeOrder(
+  order: any,
+  storeSettings?: any
+): Promise<{
+  success: boolean;
+  awb?: string;
+  courier?: string;
+  labelUrl?: string;
+  orderId?: number | string;
+  error?: string;
+}> {
+  try {
+    const customPickup: Partial<ShipPrimeAddress> | undefined = storeSettings?.shipprimePickupPincode
+      ? {
+          name: storeSettings.shipprimePickupName || 'Crystelle Studio Warehouse',
+          phone: storeSettings.shipprimePickupPhone || '9876543210',
+          address1: storeSettings.shipprimePickupAddress1 || 'Plot 45, Phase II',
+          address2: storeSettings.shipprimePickupAddress2 || 'Udyog Vihar',
+          city: storeSettings.shipprimePickupCity || 'Gurgaon',
+          state: storeSettings.shipprimePickupState || 'Haryana',
+          pincode: storeSettings.shipprimePickupPincode || '122002',
+          country: 'India',
+        }
+      : undefined;
+
+    const payload = buildCandleShipPrimePayload(order, customPickup);
+    const token = storeSettings?.shipprimeToken || undefined;
+    const res = await createShipPrimeForwardOrder(payload, token);
+
+    if (res && (res.status === 'SUCCESS' || res.awb || res.orderId)) {
+      return {
+        success: true,
+        awb: res.awb,
+        courier: res.courier,
+        labelUrl: res.labelUrl,
+        orderId: res.orderId,
+      };
+    }
+
+    return {
+      success: false,
+      error: res?.message || res?.code || 'ShipPrime courier allocation failed',
+    };
+  } catch (err: any) {
+    console.warn('ShipPrime auto-booking notice:', err);
+    return {
+      success: false,
+      error: err?.message || 'ShipPrime service unreachable',
     };
   }
 }

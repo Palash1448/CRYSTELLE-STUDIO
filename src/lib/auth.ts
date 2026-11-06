@@ -14,23 +14,26 @@ export type Order = {
   status: 'Delivered' | 'In Transit' | 'Processing';
   total: number;
   items: OrderItem[];
-  trackingNumber?: string;
-  courier?: string;
-  shippingLabelUrl?: string;
-  shipprimeOrderId?: number | string;
-  paymentMethod?: string;
-  paymentStatus?: string;
-  subtotal?: number;
-  shippingFee?: number;
-  discountAmount?: number;
-  appliedDiscountCode?: string | null;
+  trackingNumber?: string | undefined;
+  courier?: string | undefined;
+  shippingLabelUrl?: string | undefined;
+  shipprimeOrderId?: number | string | undefined;
+  paymentMethod?: string | undefined;
+  paymentStatus?: string | undefined;
+  subtotal?: number | undefined;
+  shippingFee?: number | undefined;
+  discountAmount?: number | undefined;
+  appliedDiscountCode?: string | null | undefined;
+  customerName?: string | undefined;
+  customerEmail?: string | undefined;
+  customerPhone?: string | undefined;
   shippingAddress?: {
     street: string;
     city: string;
     state: string;
     postalCode: string;
     country: string;
-  };
+  } | undefined;
 };
 
 export type UserProfile = {

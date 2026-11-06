@@ -5,7 +5,12 @@ import { products, money, pageHead, getStoredProducts } from '@/lib/store-data';
 import { getStoredStoreSettings } from '@/lib/admin-data';
 import { seoHead } from '@/lib/seo';
 import { lookupPincode } from '@/lib/pincode';
-import { saveCustomerOrderToFirestore, saveUserProfileToFirestore } from '@/lib/firestore-service';
+import {
+  saveCustomerOrderToFirestore,
+  saveUserProfileToFirestore,
+  fetchStoreSettingsFromFirestore,
+} from '@/lib/firestore-service';
+import { autoBookShipPrimeOrder } from '@/lib/shipprime';
 import type { Order, OrderItem } from '@/lib/auth';
 import { openRazorpayModal, loadRazorpayScript } from '@/lib/razorpay';
 import { Button } from '@/components/ui/button';
@@ -127,6 +132,13 @@ function CheckoutPage() {
     const handleUpdate = () => setStoreSettings(getStoredStoreSettings());
     window.addEventListener('storage', handleUpdate);
     window.addEventListener('crystelle_settings_updated', handleUpdate);
+
+    fetchStoreSettingsFromFirestore().then((remote) => {
+      if (remote) {
+        setStoreSettings((prev) => ({ ...prev, ...remote }));
+      }
+    }).catch(() => {});
+
     return () => {
       window.removeEventListener('storage', handleUpdate);
       window.removeEventListener('crystelle_settings_updated', handleUpdate);
@@ -216,7 +228,7 @@ function CheckoutPage() {
 
       // Branch 1: CASH ON DELIVERY
       if (paymentMethod === 'cod') {
-        const newOrder: Order = {
+        let newOrder: Order = {
           id: orderNumber,
           date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
           status: 'Processing',
@@ -238,6 +250,46 @@ function CheckoutPage() {
           },
         };
 
+        // --- AUTOMATIC SHIPPRIME DISPATCH (COD) ---
+        try {
+          const shipPrimeRes = await autoBookShipPrimeOrder(
+            {
+              ...newOrder,
+              orderNumber: newOrder.id,
+              customerName: fullName,
+              customerEmail: email,
+              customerPhone: phone,
+              customerCity: `${city}, ${state}`,
+              paymentMethod: 'COD',
+              paymentStatus: 'Pending',
+              total: finalTotal,
+              totalAmount: finalTotal,
+              items: orderItems,
+              shippingAddress: {
+                street,
+                city,
+                state,
+                postalCode,
+                country: 'India',
+                phone,
+              },
+            },
+            storeSettings
+          );
+
+          if (shipPrimeRes.success && shipPrimeRes.awb) {
+            newOrder = {
+              ...newOrder,
+              trackingNumber: shipPrimeRes.awb,
+              courier: shipPrimeRes.courier || 'XPRESSBEES',
+              shippingLabelUrl: shipPrimeRes.labelUrl,
+              shipprimeOrderId: shipPrimeRes.orderId,
+            };
+          }
+        } catch (shipErr) {
+          console.warn('ShipPrime auto-booking notice during COD checkout:', shipErr);
+        }
+
         // Save order to Cloud Firestore collection 'orders'
         await saveCustomerOrderToFirestore({
           ...newOrder,
@@ -251,6 +303,10 @@ function CheckoutPage() {
           shippingFee: baseShipping,
           discountAmount,
           appliedDiscountCode: appliedDiscount?.code || null,
+          trackingNumber: newOrder.trackingNumber,
+          courier: newOrder.courier,
+          shippingLabelUrl: newOrder.shippingLabelUrl,
+          shipprimeOrderId: newOrder.shipprimeOrderId,
           shippingAddress: {
             street,
             city,
@@ -345,7 +401,7 @@ function CheckoutPage() {
         }
 
         // Confirmed & Verified! Create order record
-        const newOrder: Order = {
+        let newOrder: Order = {
           id: orderNumber,
           date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
           status: 'Processing',
@@ -367,6 +423,46 @@ function CheckoutPage() {
           },
         };
 
+        // --- AUTOMATIC SHIPPRIME DISPATCH (PREPAID) ---
+        try {
+          const shipPrimeRes = await autoBookShipPrimeOrder(
+            {
+              ...newOrder,
+              orderNumber: newOrder.id,
+              customerName: fullName,
+              customerEmail: email,
+              customerPhone: phone,
+              customerCity: `${city}, ${state}`,
+              paymentMethod: 'PREPAID',
+              paymentStatus: 'Paid',
+              total: finalTotal,
+              totalAmount: finalTotal,
+              items: orderItems,
+              shippingAddress: {
+                street,
+                city,
+                state,
+                postalCode,
+                country: 'India',
+                phone,
+              },
+            },
+            storeSettings
+          );
+
+          if (shipPrimeRes.success && shipPrimeRes.awb) {
+            newOrder = {
+              ...newOrder,
+              trackingNumber: shipPrimeRes.awb,
+              courier: shipPrimeRes.courier || 'XPRESSBEES',
+              shippingLabelUrl: shipPrimeRes.labelUrl,
+              shipprimeOrderId: shipPrimeRes.orderId,
+            };
+          }
+        } catch (shipErr) {
+          console.warn('ShipPrime auto-booking notice during prepaid checkout:', shipErr);
+        }
+
         await saveCustomerOrderToFirestore({
           ...newOrder,
           orderNumber: newOrder.id,
@@ -382,6 +478,10 @@ function CheckoutPage() {
           shippingFee: baseShipping,
           discountAmount,
           appliedDiscountCode: appliedDiscount?.code || null,
+          trackingNumber: newOrder.trackingNumber,
+          courier: newOrder.courier,
+          shippingLabelUrl: newOrder.shippingLabelUrl,
+          shipprimeOrderId: newOrder.shipprimeOrderId,
           shippingAddress: {
             street,
             city,
@@ -513,6 +613,11 @@ function CheckoutPage() {
               <div className="tracking-preview-item">
                 <span className="label">Courier Tracking Code</span>
                 <code className="text-amber-800 font-semibold">{placedOrder.trackingNumber}</code>
+                {placedOrder.courier && (
+                  <span className="text-[11px] text-[#78716C] block mt-0.5">
+                    via {placedOrder.courier} (ShipPrime)
+                  </span>
+                )}
               </div>
               <div className="tracking-preview-item">
                 <span className="label">Payment Status</span>

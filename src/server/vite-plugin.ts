@@ -133,8 +133,10 @@ function createApiMiddleware() {
           });
           req.on('end', async () => {
             try {
+              const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+              const token = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '').trim() : undefined;
               const body = JSON.parse(bodyStr || '{}');
-              const result = await forwardOrderToShipPrime(body);
+              const result = await forwardOrderToShipPrime(body, token);
               res.statusCode = result.status;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify(result.data));

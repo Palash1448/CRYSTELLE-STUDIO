@@ -204,8 +204,10 @@ export async function handleWebShipPrimeRequest(request: Request): Promise<Respo
 
   if (url.pathname === '/api/shipprime/forward' && request.method === 'POST') {
     try {
+      const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+      const token = authHeader?.replace(/^Bearer\s+/i, '').trim();
       const payload = (await request.json()) as ShipPrimeForwardOrderRequest;
-      const result = await forwardOrderToShipPrime(payload);
+      const result = await forwardOrderToShipPrime(payload, token || undefined);
       return new Response(JSON.stringify(result.data), {
         status: result.status,
         headers: { 'Content-Type': 'application/json' },
